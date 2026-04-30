@@ -39,3 +39,23 @@ risk under Israeli privacy law and GDPR-style data minimization principles.
 The paired data repository should eventually include `NOTICE.md`,
 `DISCLAIMER.md`, `datapackage.json`, schema metadata, source manifests,
 extraction run manifests, and release snapshots.
+
+## v0 Preview Publication Policy
+
+A first manual dataset publication may be prepared as a `v0 preview` before
+scheduled build and publication automation exists. This preview must be
+report-metadata-only, PR-based into
+`AdanimInstitue/israel-welfare-inspection-dataset`, and reviewed before merge.
+
+The preview PR should include:
+
+- clear `v0 preview` language
+- source provenance and run dates
+- diagnostics summary and known limitations
+- CC BY 4.0 target license notice for derived outputs
+- attribution to the Ministry of Welfare as source publisher
+- attribution to the Adanim/Taub/builder pipeline for derived parsed data
+- disclaimer that parsed data is unofficial and may contain errors
+
+Do not publish downloaded PDFs, unreviewed large artifacts, finding-level rows,
+OCR-derived fields, or any suspected personal/sensitive data in the v0 preview.

@@ -184,3 +184,73 @@ Future workflows should include:
 
 Scheduled and publishing workflows should be added only when they are safe,
 credential-aware, and cannot fail solely because live external access is absent.
+
+## Manual v0 Preview Publication Runbook
+
+The project may do a one-time manual `v0 preview` publication before PR 7 and
+PR 8 automation, but only as a report-metadata-only preview. This runbook is a
+checkpointed plan; do not start live collection or data-repo publication until
+the plan has been reviewed.
+
+Step 1: run the local pipeline manually against public Gov.il data.
+
+```bash
+welfare-inspections discover \
+  --output outputs/source_manifest.jsonl \
+  --diagnostics outputs/discovery_diagnostics.json
+
+welfare-inspections download \
+  --source-manifest outputs/source_manifest.jsonl \
+  --output-manifest outputs/download_manifest.jsonl \
+  --diagnostics outputs/download_diagnostics.json \
+  --download-dir downloads/pdfs
+
+welfare-inspections parse \
+  --source-manifest outputs/download_manifest.jsonl \
+  --text-output-dir outputs/extracted_text \
+  --diagnostics outputs/text_extraction_diagnostics.json
+
+welfare-inspections parse-metadata \
+  --text-diagnostics outputs/text_extraction_diagnostics.json \
+  --output outputs/report_metadata.jsonl \
+  --diagnostics outputs/metadata_parse_diagnostics.json
+
+welfare-inspections export \
+  --metadata outputs/report_metadata.jsonl \
+  --metadata-diagnostics outputs/metadata_parse_diagnostics.json \
+  --output-dir outputs/exports
+```
+
+Step 2: review generated local outputs and diagnostics.
+
+- Confirm `outputs/exports/reports.jsonl`, `outputs/exports/reports.csv`, and
+  `outputs/exports/export_diagnostics.json` exist.
+- Review discovery, download, text extraction, metadata parse, and export
+  diagnostics before publication.
+- Stop if required provenance is missing, row validation failures are
+  structural, extraction coverage is unexpectedly low, source access appears
+  blocked or incomplete, or any privacy risk is detected.
+
+Step 3: prepare a data-repo branch for a v0 report-metadata-only preview.
+
+- Use `AdanimInstitue/israel-welfare-inspection-dataset`.
+- Include only reviewed export artifacts, diagnostics summaries,
+  `README`/schema metadata, `NOTICE`, `DISCLAIMER`, and release notes.
+- Do not copy downloaded PDFs, builder-local caches, unreviewed large
+  artifacts, or generated files back into this builder repository.
+
+Step 4: open a PR into the data repository.
+
+- Publication must be PR-based.
+- Do not push directly to the data repo `main`.
+- The PR should be non-draft only after local artifacts and diagnostics have
+  been reviewed.
+
+Step 5: include publication context.
+
+- Use clear `v0 preview` language.
+- State that outputs are report-level metadata only.
+- Include source provenance, run dates, diagnostics summary, caveats, known
+  limitations, CC BY 4.0 target license notice, source attribution to the
+  Ministry of Welfare, and derived-data pipeline attribution.
+- State that parsed data is unofficial and may contain parsing errors.

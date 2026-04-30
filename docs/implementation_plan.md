@@ -99,3 +99,38 @@ Acceptance criteria:
 - Builder repo still contains no generated dataset artifacts. Done.
 - Exported rows retain source provenance and parse diagnostics. Done for
   report rows, field evidence, warnings, and metadata parse diagnostics.
+
+## Manual v0 Preview Dataset Publication
+
+This is an optional, checkpointed manual path before PR 7 and PR 8 automation.
+It may be used to produce a first public preview in the paired data repository,
+but only as a report-metadata-only v0 preview.
+
+Steps:
+
+1. Run the existing local pipeline manually against public Gov.il data:
+   `discover`, `download`, `parse`, `parse-metadata`, and `export`.
+2. Review generated outputs and diagnostics locally before any publication
+   work. Do not publish if diagnostics show structural validation failures,
+   missing required provenance, unexpectedly low extraction coverage, or privacy
+   risk.
+3. Prepare a data-repo branch containing only reviewed v0 report metadata
+   artifacts, diagnostics summaries, schema/readme metadata, notices, and
+   disclaimers. Do not copy downloaded PDFs, builder-local caches, or large
+   unreviewed artifacts.
+4. Open a PR into `AdanimInstitue/israel-welfare-inspection-dataset`; do not
+   push directly to `main`.
+5. In the data-repo PR, include provenance, caveats, diagnostics summary,
+   license/disclaimer text, and clear `v0 preview` language.
+
+Boundaries:
+
+- Report-level metadata only: no finding-level rows.
+- No OCR fallback.
+- No scheduled workflow or automated publication.
+- No generated dataset artifacts committed to this builder repository.
+- Publication remains PR-based and human-reviewed.
+
+Pause point:
+
+- Stop after documenting this plan and before Step 1 until the plan is reviewed.

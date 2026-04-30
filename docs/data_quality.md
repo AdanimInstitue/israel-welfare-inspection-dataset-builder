@@ -55,3 +55,15 @@ later PR with clear provenance and licensing notes.
 Every public row should be reproducible from source documents and parser
 version. Exports should retain enough provenance for researchers to trace a
 derived value back to its source PDF and extraction run.
+
+## v0 Preview Quality Gate
+
+Before any manual v0 preview publication, review local diagnostics from every
+stage: discovery, download, text extraction, metadata parsing, and export. Do
+not publish the preview if diagnostics indicate missing required provenance,
+structural validation failures, unexpectedly low extraction coverage, blocked or
+incomplete source access, or privacy risk.
+
+The v0 preview should publish only reviewed report-level metadata and a concise
+diagnostics summary. It should not publish finding-level rows, OCR-derived
+fields, downloaded PDFs, or unreviewed large artifacts.

@@ -73,6 +73,9 @@ data_samples/
   `docs/privacy_and_publication_policy.md`
 - Immediate roadmap: `docs/roadmap.md` and `docs/implementation_plan.md`
 - Current local report export contract: `schemas/report.schema.json`
+- Manual v0 preview publication plan:
+  `docs/implementation_plan.md`, `docs/operations.md`,
+  `docs/privacy_and_publication_policy.md`, and `docs/data_quality.md`
 
 ## Automation
 

@@ -31,6 +31,14 @@ administration, visit type, visit date, publication date, and page count.
 
 Implement canonical schema validation and export CSV/JSONL outputs locally.
 
+## Optional Manual v0 Preview Dataset Publication
+
+Before PR 7/PR 8 automation, the project may publish a report-metadata-only
+`v0 preview` manually into the paired data repository. This is not a substitute
+for the planned automated publication flow: it must use a data-repo PR, include
+provenance and caveats, avoid downloaded PDFs and unreviewed large artifacts,
+and stop if local diagnostics show validation, coverage, or privacy concerns.
+
 ## PR 7: Weekly Workflow and Artifact Upload
 
 Add safe scheduled build automation and upload artifacts for review.
