@@ -65,16 +65,20 @@ Acceptance criteria:
 
 Tasks:
 
-- Parse report-level fields from extracted text.
+- Parse report-level fields from extracted text. Done via the manual
+  `welfare-inspections parse-metadata` command.
 - Return structured values plus raw excerpts, page numbers, confidence, and
-  warnings.
-- Add golden tests for representative synthetic examples.
+  warnings. Done in the metadata JSONL and diagnostics sidecar.
+- Add golden tests for representative synthetic examples. Done without
+  committed real PDFs or live network access.
 
 Acceptance criteria:
 
-- Parser failures create warnings rather than crashing the full parse.
-- Raw and normalized fields remain distinct.
-- Docs/schema contracts are updated if fields change.
+- Parser failures create warnings rather than crashing the full parse. Done for
+  unavailable or missing text files and malformed dates.
+- Raw and normalized fields remain distinct. Done in `MetadataField`.
+- Docs/schema contracts are updated if fields change. Done for PR 5 metadata
+  parse outputs.
 
 ## PR 6: Schema Validation and Local Exports
 

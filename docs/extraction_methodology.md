@@ -25,8 +25,9 @@ recorded as extraction diagnostics/warnings for later handling.
 
 ## Parser Contracts
 
-Future parser functions should return structured records plus diagnostics, not
-only strings. A parsed field should include:
+Parser functions should return structured records plus diagnostics, not only
+strings. PR 5 implements this for top-level report metadata with a deterministic
+manual `parse-metadata` stage. A parsed field includes:
 
 - canonical field name
 - normalized value where applicable
@@ -35,6 +36,10 @@ only strings. A parsed field should include:
 - extraction method
 - confidence
 - warning codes/messages where applicable
+
+The PR 5 metadata parser consumes only PR 4 extracted text files and text
+extraction diagnostics. It does not inspect PDFs, collect from Gov.il, OCR,
+parse finding-level rows, export canonical datasets, or publish data.
 
 ## Hebrew Normalization
 

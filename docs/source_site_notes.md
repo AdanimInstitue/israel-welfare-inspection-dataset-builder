@@ -13,7 +13,9 @@ PR 2 adds an inert-by-default discovery prototype. PR 3 adds an
 inert-by-default downloader that consumes the discovery manifest and downloads
 only the public `pdf_url` values when manually invoked. PR 4 adds an
 inert-by-default embedded-text extractor that consumes the download manifest and
-local PDF paths. These stages are tested only with mocked or synthetic inputs.
+local PDF paths. PR 5 adds an inert-by-default metadata parser that consumes
+only PR 4 extracted text and diagnostics. These stages are tested only with
+mocked or synthetic inputs.
 
 ## Discovery Strategy
 
@@ -120,6 +122,20 @@ The parser reads only the PR 3 manifest and local PDF paths, extracts embedded
 text, writes ignored local text outputs, and preserves source/download
 provenance in diagnostics. It does not collect from Gov.il, download PDFs, OCR,
 parse report-level metadata, export datasets, or publish data.
+
+Manual PR 5 metadata parse command:
+
+```bash
+welfare-inspections parse-metadata \
+  --text-diagnostics outputs/text_extraction_diagnostics.json \
+  --output outputs/report_metadata.jsonl \
+  --diagnostics outputs/metadata_parse_diagnostics.json
+```
+
+The metadata parser reads only the PR 4 diagnostics and local extracted text
+files. It preserves source provenance in report metadata rows and diagnostics,
+and it does not collect from Gov.il, download PDFs, OCR, parse finding-level
+rows, export final datasets, publish data, or contact the network.
 
 ## Required Source Record
 

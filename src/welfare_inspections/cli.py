@@ -9,6 +9,9 @@ import typer
 from rich.console import Console
 
 from welfare_inspections import __version__
+from welfare_inspections.collect.metadata_parser import (
+    parse_metadata_from_text_diagnostics,
+)
 from welfare_inspections.collect.pdf_download import download_source_pdfs
 from welfare_inspections.collect.pdf_text import extract_embedded_text_from_manifest
 from welfare_inspections.collect.portal_discovery import (
@@ -17,6 +20,7 @@ from welfare_inspections.collect.portal_discovery import (
 from welfare_inspections.collect.settings import (
     DiscoverySettings,
     DownloadSettings,
+    MetadataParseSettings,
     ParseSettings,
 )
 
@@ -209,6 +213,45 @@ def parse(
     console.print(
         f"Processed {run_diagnostics.total_records} source records; "
         f"extracted={run_diagnostics.extracted_records}; "
+        f"failed={run_diagnostics.failed_records}; "
+        f"warnings={run_diagnostics.warning_records}"
+    )
+
+
+@app.command("parse-metadata")
+def parse_metadata(
+    text_diagnostics: Annotated[
+        Path,
+        typer.Option(
+            "--text-diagnostics",
+            help="Path to PR 4 embedded text extraction diagnostics JSON.",
+        ),
+    ] = Path("outputs/text_extraction_diagnostics.json"),
+    output: Annotated[
+        Path,
+        typer.Option(
+            "--output",
+            help="Path for ignored report metadata JSONL output.",
+        ),
+    ] = Path("outputs/report_metadata.jsonl"),
+    diagnostics: Annotated[
+        Path,
+        typer.Option(
+            "--diagnostics",
+            help="Path for metadata parse diagnostics JSON.",
+        ),
+    ] = Path("outputs/metadata_parse_diagnostics.json"),
+) -> None:
+    """Manually parse top-level report metadata from extracted text."""
+    MetadataParseSettings()
+    run_diagnostics = parse_metadata_from_text_diagnostics(
+        text_diagnostics_path=text_diagnostics,
+        output_path=output,
+        diagnostics_path=diagnostics,
+    )
+    console.print(
+        f"Processed {run_diagnostics.total_records} text records; "
+        f"parsed={run_diagnostics.parsed_records}; "
         f"failed={run_diagnostics.failed_records}; "
         f"warnings={run_diagnostics.warning_records}"
     )

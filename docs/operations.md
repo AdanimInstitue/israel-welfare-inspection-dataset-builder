@@ -2,9 +2,10 @@
 
 PR 2 adds a manual source discovery prototype. PR 3 adds a separate manual PDF
 download/checksum layer that reads the PR 2 source manifest. PR 4 adds a manual
-embedded-text extraction layer that reads the PR 3 download manifest. These
-commands are inert by default and write ignored local outputs. CI remains
-offline and uses mocked or synthetic inputs only.
+embedded-text extraction layer that reads the PR 3 download manifest. PR 5 adds
+a manual top-level metadata parser that reads PR 4 extracted text and
+diagnostics. These commands are inert by default and write ignored local
+outputs. CI remains offline and uses mocked or synthetic inputs only.
 
 ## Future CLI
 
@@ -15,6 +16,7 @@ Current manual commands:
 - `welfare-inspections discover`
 - `welfare-inspections download`
 - `welfare-inspections parse`
+- `welfare-inspections parse-metadata`
 
 Planned future commands:
 
@@ -27,6 +29,8 @@ Expected behavior:
 - `discover` writes a source manifest JSONL.
 - `download` reads a manifest and downloads/checksums PDFs.
 - `parse` extracts embedded text and PDF diagnostics from downloaded PDFs.
+- `parse-metadata` parses report-level metadata from extracted text and text
+  diagnostics.
 - `build` emits CSV/JSONL outputs into a local output directory.
 - `publish` opens a PR into the data repository, not a direct push to main.
 - `run-all` chains the local non-publishing steps.
@@ -75,11 +79,27 @@ metadata diagnostics, normalizes extracted text deterministically, and writes
 per-document text files into ignored local outputs. It does not OCR, parse
 report-level metadata, export datasets, publish data, or contact Gov.il.
 
+Current PR 5 metadata parse command:
+
+```bash
+welfare-inspections parse-metadata \
+  --text-diagnostics outputs/text_extraction_diagnostics.json \
+  --output outputs/report_metadata.jsonl \
+  --diagnostics outputs/metadata_parse_diagnostics.json
+```
+
+The metadata parser reads only PR 4 extracted text paths recorded in the text
+diagnostics sidecar. It parses deterministic report-level fields, keeps raw and
+normalized values separate, records excerpts and page numbers where page markers
+are present, and preserves source provenance. It does not inspect PDFs, collect
+from Gov.il, OCR, parse finding-level rows, export final datasets, publish data,
+or contact the network.
+
 ## Project Management
 
 Use Python 3.11+ or 3.12. Prefer uv-based project management.
 
-Current PR 2/PR 3/PR 4 runtime dependencies:
+Current PR 2/PR 3/PR 4/PR 5 runtime dependencies:
 
 - `httpx`
 - `beautifulsoup4`
