@@ -61,6 +61,42 @@ plus a `fields` object. Each parsed field keeps `raw_value`,
 `warnings` together. This output is an intermediate parse artifact, not the
 final canonical dataset export.
 
+PR 6 adds a validated local report-level export row. It flattens the PR 5
+metadata fields into analysis-friendly columns while preserving the nested
+evidence:
+
+| Field | Type | Class |
+| --- | --- | --- |
+| `facility_name_raw` | string/null | raw |
+| `facility_name_normalized` | string/null | normalized |
+| `facility_id_raw` | string/null | raw |
+| `facility_id_normalized` | string/null | normalized |
+| `facility_type_raw` | string/null | raw |
+| `facility_type_normalized` | string/null | normalized |
+| `district_raw` | string/null | raw |
+| `district_normalized` | string/null | normalized |
+| `administration_raw` | string/null | raw |
+| `administration_normalized` | string/null | normalized |
+| `visit_type_raw` | string/null | raw |
+| `visit_type_normalized` | string/null | normalized |
+| `visit_date_raw` | string/null | raw |
+| `visit_date` | date/null | normalized |
+| `report_publication_date_raw` | string/null | raw |
+| `report_publication_date` | date/null | normalized |
+| `raw_fields` | object | raw |
+| `normalized_fields` | object | normalized |
+| `field_evidence` | object | derived |
+| `warnings` | array | derived |
+| `parse_diagnostics` | array | derived |
+
+The JSONL export keeps nested objects. The CSV export keeps the same scalar
+columns and serializes `raw_fields`, `normalized_fields`, `field_evidence`,
+`warnings`, and `parse_diagnostics` as JSON strings.
+
+PR 6 validates each metadata row before export. Missing required provenance or
+IDs, malformed date values, and duplicate `report_id` values are recorded in
+`export_diagnostics.json` where possible. Valid rows continue to export.
+
 ## `inspection_findings`
 
 Tracks individual findings, standards, recommendations, or section-level
@@ -99,8 +135,8 @@ metadata parse diagnostics sidecar. Missing deterministic top-level fields,
 malformed dates, unavailable extracted text, and missing text files are warnings
 or per-document diagnostics rather than full-run failures.
 
-## Placeholder JSON Schemas
+## JSON Schemas
 
-The `schemas/` directory contains placeholder schemas in PR 1. Later PRs should
-expand them into complete JSON Schema and Pydantic contracts before exporters
-are treated as stable.
+`schemas/report.schema.json` defines the PR 6 canonical report-level local
+export row. Facility, inspection finding, and datapackage schemas remain
+minimal placeholders until those export surfaces are implemented.

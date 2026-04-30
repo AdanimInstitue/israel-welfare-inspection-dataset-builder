@@ -84,13 +84,18 @@ Acceptance criteria:
 
 Tasks:
 
-- Expand JSON Schema and Pydantic contracts.
-- Validate canonical rows.
-- Export local CSV and JSONL outputs.
-- Add tests for duplicate IDs, required fields, and malformed dates.
+- Expand JSON Schema and Pydantic contracts. Done for canonical report-level
+  local export rows.
+- Validate canonical rows. Done during manual export from PR 5 metadata JSONL.
+- Export local CSV and JSONL outputs. Done via inert
+  `welfare-inspections export`.
+- Add tests for duplicate IDs, required fields, and malformed dates. Done with
+  synthetic offline metadata fixtures.
 
 Acceptance criteria:
 
-- Outputs are generated only into local ignored output directories.
-- Builder repo still contains no generated dataset artifacts.
-- Exported rows retain source provenance and parse diagnostics.
+- Outputs are generated only into local ignored output directories. Done under
+  `outputs/exports` by default.
+- Builder repo still contains no generated dataset artifacts. Done.
+- Exported rows retain source provenance and parse diagnostics. Done for
+  report rows, field evidence, warnings, and metadata parse diagnostics.

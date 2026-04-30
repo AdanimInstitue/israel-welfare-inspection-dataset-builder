@@ -4,8 +4,10 @@ PR 2 adds a manual source discovery prototype. PR 3 adds a separate manual PDF
 download/checksum layer that reads the PR 2 source manifest. PR 4 adds a manual
 embedded-text extraction layer that reads the PR 3 download manifest. PR 5 adds
 a manual top-level metadata parser that reads PR 4 extracted text and
-diagnostics. These commands are inert by default and write ignored local
-outputs. CI remains offline and uses mocked or synthetic inputs only.
+diagnostics. PR 6 adds a manual schema validation and local export layer that
+reads PR 5 metadata JSONL and diagnostics. These commands are inert by default
+and write ignored local outputs. CI remains offline and uses mocked or synthetic
+inputs only.
 
 ## Future CLI
 
@@ -17,6 +19,7 @@ Current manual commands:
 - `welfare-inspections download`
 - `welfare-inspections parse`
 - `welfare-inspections parse-metadata`
+- `welfare-inspections export`
 
 Planned future commands:
 
@@ -31,7 +34,9 @@ Expected behavior:
 - `parse` extracts embedded text and PDF diagnostics from downloaded PDFs.
 - `parse-metadata` parses report-level metadata from extracted text and text
   diagnostics.
-- `build` emits CSV/JSONL outputs into a local output directory.
+- `export` validates parsed report metadata and emits local CSV/JSONL outputs.
+- `build` will later chain broader dataset outputs into a local output
+  directory.
 - `publish` opens a PR into the data repository, not a direct push to main.
 - `run-all` chains the local non-publishing steps.
 
@@ -95,11 +100,31 @@ are present, and preserves source provenance. It does not inspect PDFs, collect
 from Gov.il, OCR, parse finding-level rows, export final datasets, publish data,
 or contact the network.
 
+Current PR 6 local export command:
+
+```bash
+welfare-inspections export \
+  --metadata outputs/report_metadata.jsonl \
+  --metadata-diagnostics outputs/metadata_parse_diagnostics.json \
+  --output-dir outputs/exports
+```
+
+The export command reads only PR 5 metadata JSONL and diagnostics. It validates
+each report row against the canonical Pydantic contract, writes
+`reports.jsonl`, `reports.csv`, and `export_diagnostics.json` into the ignored
+local output directory, and preserves provenance, raw fields, normalized fields,
+field evidence, warnings, page counts, extraction status/confidence, report IDs,
+and parse diagnostics. Row validation failures, duplicate report IDs, and
+malformed dates are recorded as diagnostics where possible; valid rows continue
+to export. It does not inspect PDFs, collect from Gov.il, OCR, parse
+finding-level rows, publish data, write to the paired data repository, or
+contact the network.
+
 ## Project Management
 
 Use Python 3.11+ or 3.12. Prefer uv-based project management.
 
-Current PR 2/PR 3/PR 4/PR 5 runtime dependencies:
+Current PR 2/PR 3/PR 4/PR 5/PR 6 runtime dependencies:
 
 - `httpx`
 - `beautifulsoup4`

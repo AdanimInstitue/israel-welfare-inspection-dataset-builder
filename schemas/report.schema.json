@@ -1,15 +1,133 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/AdanimInstitue/israel-welfare-inspection-dataset-builder/schemas/report.schema.json",
-  "title": "Report",
-  "description": "Placeholder schema for report-level canonical records. PR 1 documents the contract; later PRs should complete validation rules.",
+  "title": "Canonical Report Export Row",
+  "description": "Report-level canonical local export row produced from validated PR 5 metadata artifacts.",
   "type": "object",
-  "required": ["report_id", "source_document_id", "extraction_status"],
+  "required": [
+    "report_id",
+    "source_document_id",
+    "govil_item_url",
+    "pdf_url",
+    "extraction_status",
+    "parsed_at",
+    "exported_at",
+    "raw_fields",
+    "normalized_fields",
+    "field_evidence",
+    "warnings",
+    "parse_diagnostics"
+  ],
   "properties": {
-    "report_id": { "type": "string" },
-    "source_document_id": { "type": "string" },
-    "facility_name": { "type": ["string", "null"] },
-    "extraction_status": { "type": "string" }
+    "report_id": { "type": "string", "minLength": 1 },
+    "source_document_id": { "type": "string", "minLength": 1 },
+    "govil_item_slug": { "type": ["string", "null"] },
+    "govil_item_url": { "type": "string", "minLength": 1 },
+    "pdf_url": { "type": "string", "minLength": 1 },
+    "title": { "type": ["string", "null"] },
+    "language_path": { "type": ["string", "null"] },
+    "pdf_sha256": { "type": ["string", "null"] },
+    "local_path": { "type": ["string", "null"] },
+    "text_path": { "type": ["string", "null"] },
+    "page_count": { "type": ["integer", "null"], "minimum": 1 },
+    "extraction_status": { "type": "string", "minLength": 1 },
+    "extraction_confidence": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "parsed_at": { "type": "string", "format": "date-time" },
+    "exported_at": { "type": "string", "format": "date-time" },
+    "facility_name_raw": { "type": ["string", "null"] },
+    "facility_name_normalized": { "type": ["string", "null"] },
+    "facility_id_raw": { "type": ["string", "null"] },
+    "facility_id_normalized": { "type": ["string", "null"] },
+    "facility_type_raw": { "type": ["string", "null"] },
+    "facility_type_normalized": { "type": ["string", "null"] },
+    "district_raw": { "type": ["string", "null"] },
+    "district_normalized": { "type": ["string", "null"] },
+    "administration_raw": { "type": ["string", "null"] },
+    "administration_normalized": { "type": ["string", "null"] },
+    "visit_type_raw": { "type": ["string", "null"] },
+    "visit_type_normalized": { "type": ["string", "null"] },
+    "visit_date_raw": { "type": ["string", "null"] },
+    "visit_date": { "type": ["string", "null"], "format": "date" },
+    "report_publication_date_raw": { "type": ["string", "null"] },
+    "report_publication_date": {
+      "type": ["string", "null"],
+      "format": "date"
+    },
+    "raw_fields": {
+      "type": "object",
+      "additionalProperties": { "type": ["string", "null"] }
+    },
+    "normalized_fields": {
+      "type": "object",
+      "additionalProperties": { "type": ["string", "null"] }
+    },
+    "field_evidence": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/metadata_field" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/parse_warning" }
+    },
+    "parse_diagnostics": {
+      "type": "array",
+      "items": { "type": "object" }
+    }
   },
-  "additionalProperties": true
+  "additionalProperties": false,
+  "$defs": {
+    "metadata_field": {
+      "type": "object",
+      "required": [
+        "field_name",
+        "raw_value",
+        "normalized_value",
+        "raw_excerpt",
+        "page_number",
+        "confidence",
+        "warnings"
+      ],
+      "properties": {
+        "field_name": { "type": "string" },
+        "raw_value": { "type": ["string", "null"] },
+        "normalized_value": { "type": ["string", "null"] },
+        "raw_excerpt": { "type": ["string", "null"] },
+        "page_number": { "type": ["integer", "null"], "minimum": 1 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "parse_warning": {
+      "type": "object",
+      "required": [
+        "warning_id",
+        "source_document_id",
+        "report_id",
+        "severity",
+        "parser_stage",
+        "message",
+        "page_number",
+        "raw_excerpt"
+      ],
+      "properties": {
+        "warning_id": { "type": "string", "minLength": 1 },
+        "source_document_id": { "type": "string", "minLength": 1 },
+        "report_id": { "type": ["string", "null"] },
+        "severity": { "type": "string" },
+        "parser_stage": { "type": "string" },
+        "message": { "type": "string", "minLength": 1 },
+        "page_number": { "type": ["integer", "null"], "minimum": 1 },
+        "raw_excerpt": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    }
+  }
 }
