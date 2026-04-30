@@ -1,7 +1,9 @@
 # Operations
 
-PR 1 provides documentation, a minimal package skeleton, and local validation.
-It does not run a live collector or publish data.
+PR 2 adds a manual source discovery prototype. It can probe the public Gov.il
+collector locally, read the public DynamicCollector endpoint when advertised by
+the server HTML, and write ignored manifest and diagnostics files. CI remains
+offline and uses mocked responses only.
 
 ## Future CLI
 
@@ -25,14 +27,25 @@ Expected behavior:
 - `publish` opens a PR into the data repository, not a direct push to main.
 - `run-all` chains the local non-publishing steps.
 
+Current PR 2 discovery command:
+
+```bash
+welfare-inspections discover \
+  --output outputs/source_manifest.jsonl \
+  --diagnostics outputs/discovery_diagnostics.json
+```
+
+The command starts at the canonical `skip=0` URL, iterates conservatively, and
+stops on empty, repeated, blocked, or exhausted pages. It records HTTP and parser
+diagnostics, including structured endpoint requests. It does not download PDFs.
+
 ## Project Management
 
 Use Python 3.11+ or 3.12. Prefer uv-based project management.
 
-Recommended future runtime dependencies:
+Current PR 2 runtime dependencies:
 
 - `httpx`
-- `playwright`
 - `beautifulsoup4`
 - `lxml`
 - `pydantic`
@@ -41,6 +54,10 @@ Recommended future runtime dependencies:
 - `rich`
 - `structlog`
 - `tenacity`
+
+Recommended future runtime dependencies:
+
+- `playwright`
 - `pymupdf`
 - `pdfplumber`
 - `pypdf`

@@ -11,7 +11,14 @@ data repo: `AdanimInstitue/israel-welfare-inspection-dataset`.
 src/
   welfare_inspections/
     __init__.py      package version
-    cli.py           placeholder CLI entrypoint
+    cli.py           Typer CLI entrypoint with manual discovery command
+    collect/
+      govil_client.py       conservative manual Gov.il HTTP client
+      manifest.py           source JSONL and diagnostics writers
+      models.py             Pydantic source discovery contracts
+      portal_discovery.py   skip-based HTML/structured-endpoint orchestration
+      portal_parser.py      Gov.il-like HTML and DynamicCollector parser
+      settings.py           environment-configurable discovery defaults
 
 schemas/
   report.schema.json       placeholder report contract
@@ -22,6 +29,7 @@ schemas/
 tests/
   test_imports.py      package and CLI smoke tests
   test_docs_exist.py   docs/schema existence and content-contract tests
+  test_source_discovery.py mocked discovery/parser/manifest tests
 
 docs/
   architecture.md

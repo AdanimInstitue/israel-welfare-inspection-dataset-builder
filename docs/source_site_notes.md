@@ -9,34 +9,39 @@ Ministry of Welfare and Social Affairs / Ministry of Welfare and Social
 Security to publish public inspection and supervision reports for out-of-home
 welfare facilities, including hostels, residential centers, and care facilities.
 
-PR 1 does not implement discovery. It records the intended investigation and
-collector design.
+PR 2 adds an inert-by-default discovery prototype. It is run only by manual
+local command and is tested only with mocked HTML/HTTP responses.
 
 ## Discovery Strategy
 
 1. Inspect the Gov.il dynamic collector page starting at `skip=0`.
 2. Prefer a stable structured data endpoint if the dynamic collector uses one.
 3. Use `httpx` against a structured endpoint when possible.
-4. Use rendered HTML inspection when records are present in server output.
+4. Use server HTML parsing when records are present in server output.
 5. Use Playwright only as a browser-rendered fallback when records are available
    only after client-side rendering and this approach is appropriate for the
    public portal.
 6. Preserve source provenance for every discovered report.
 
+The PR 2 implementation parses Gov.il-like HTML for public PDF/file links,
+detects the embedded Gov.il DynamicCollector configuration when the server HTML
+is only a client-rendered shell, posts conservative page requests to the public
+structured endpoint, derives deterministic source document IDs, and writes a
+source manifest JSONL plus diagnostics sidecar. It does not download PDFs.
+
 ## Pagination Questions
 
-The `skip=0` query parameter appears likely to be a pagination or offset
-parameter and must be investigated before collection is implemented.
+The `skip=0` query parameter is mirrored into the structured endpoint request as
+both `From` and `QueryFilters.skip.Query`. The observed page size is 10.
 
-Future source-discovery work must answer:
+The prototype iterates `skip` conservatively by a configurable page size and
+stops on an empty page, repeated page signature, no new records, or max pages.
+The default command starts at `skip=0`, uses a page size of 10, and limits a run
+to five pages unless overridden.
 
-- Does `skip=0` represent the first page?
-- What page size is used?
-- Do later pages use `skip=10`, `skip=20`, etc.?
-- Is pagination reflected in HTML, browser state, or an underlying structured
-  data request?
-- Are all records reachable by iterating `skip`, or is there a separate Gov.il
-  dynamic collector data source?
+Future source-discovery work should still verify that all records are reachable
+by iterating `skip=0`, `skip=10`, `skip=20`, etc. through the structured
+endpoint, and should compare the endpoint total with emitted manifest rows.
 
 ## Discovery Mechanisms to Record
 
@@ -51,6 +56,41 @@ through:
 Any access limitations observed during implementation should be recorded here.
 The collector must not attempt to bypass access controls or access non-public
 information.
+
+Current local observation from this implementation environment on 2026-04-30:
+plain `curl` requests to the canonical page can receive a Cloudflare HTTP 403,
+but the prototype's clear research user agent received HTTP 200 for the public
+collector shell. The server HTML is an Angular dynamic collector shell, not a
+page with rendered result records. The shell embeds:
+
+- dynamic template ID:
+  `48cbb17e-017a-45a5-8001-fd8a54253529`
+- client ID: `149a5bad-edde-49a6-9fb9-188bd17d4788`
+- structured endpoint: `https://www.gov.il/he/api/DynamicCollector`
+- observed page size: `10`
+
+The structured endpoint returned public JSON results containing report file
+metadata. The resulting PDF URLs use this pattern:
+
+```text
+https://www.gov.il/BlobFolder/dynamiccollectorresultitem/{UrlName}/he/{FileName}
+```
+
+A one-page manual probe from this environment wrote 10 manifest rows and stopped
+with `stop_reason=max_pages`. Diagnostics recorded HTTP 200 for both the shell
+page and the structured endpoint. The generated manifest and diagnostics remain
+ignored local outputs.
+
+Manual local probe command:
+
+```bash
+welfare-inspections discover \
+  --output outputs/source_manifest.jsonl \
+  --diagnostics outputs/discovery_diagnostics.json
+```
+
+Generated outputs are ignored by git and should be inspected locally before
+being used by later PRs.
 
 ## Required Source Record
 
