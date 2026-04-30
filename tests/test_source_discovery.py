@@ -17,6 +17,7 @@ from welfare_inspections.collect.govil_client import (
 from welfare_inspections.collect.models import HttpDiagnostic
 from welfare_inspections.collect.portal_discovery import discover_source_documents
 from welfare_inspections.collect.portal_parser import parse_source_records
+from welfare_inspections.collect.settings import DiscoverySettings
 
 PAGE_URL = (
     "https://www.gov.il/he/departments/dynamiccollectors/"
@@ -52,6 +53,26 @@ def test_parse_single_hebrew_pdf_record_preserves_title_and_date() -> None:
     )
 
 
+def test_parse_invalid_date_returns_nullable_date() -> None:
+    html = """
+    <article>
+      <a href="/he/departments/publications/reports/bad-date">פרסום</a>
+      <time datetime="2024-02-31">31/02/2024</time>
+      <a href="/BlobFolder/reports/bad-date/he/report.pdf">דוח</a>
+    </article>
+    """
+
+    records = parse_source_records(
+        html,
+        page_url=PAGE_URL,
+        http_status=200,
+        response_headers={},
+    )
+
+    assert len(records) == 1
+    assert records[0].source_published_at is None
+
+
 def test_parse_multiple_records_and_nullable_dates() -> None:
     html = """
     <section>
@@ -76,6 +97,28 @@ def test_parse_multiple_records_and_nullable_dates() -> None:
     assert [record.title for record in records] == ["דוח ראשון", "דוח שני"]
     assert records[0].source_published_at is None
     assert records[1].source_published_at is None
+
+
+def test_parse_multiple_fallback_page_records_keep_unique_pdf_ids() -> None:
+    page_url = "https://www.gov.il/departments/dynamiccollectors?skip=0"
+    html = """
+    <div>
+      <a href="/BlobFolder/reports/one/he/report.pdf">דוח ראשון</a>
+      <a href="/BlobFolder/reports/two/he/report.pdf">דוח שני</a>
+    </div>
+    """
+
+    records = parse_source_records(
+        html,
+        page_url=page_url,
+        http_status=200,
+        response_headers={},
+    )
+
+    assert len(records) == 2
+    assert records[0].govil_item_url == page_url
+    assert records[1].govil_item_url == page_url
+    assert records[0].source_document_id != records[1].source_document_id
 
 
 def test_parse_blobfolder_link_without_pdf_extension_and_missing_metadata() -> None:
@@ -476,6 +519,21 @@ def test_govil_client_fetch_records_request_error(
 
     assert fetch.html == ""
     assert fetch.diagnostic.error == "ConnectError"
+    assert fake_http_client.requested_urls == [PAGE_URL, PAGE_URL, PAGE_URL]
+
+
+def test_discovery_settings_read_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("WELFARE_INSPECTIONS_DISCOVERY_MAX_PAGES", "12")
+    monkeypatch.setenv("WELFARE_INSPECTIONS_DISCOVERY_PAGE_SIZE", "25")
+    monkeypatch.setenv("WELFARE_INSPECTIONS_DISCOVERY_REQUEST_DELAY_SECONDS", "0.5")
+
+    settings = DiscoverySettings()
+
+    assert settings.max_pages == 12
+    assert settings.page_size == 25
+    assert settings.request_delay_seconds == 0.5
 
 
 def test_discovery_stops_on_blocked_response(tmp_path: Path) -> None:

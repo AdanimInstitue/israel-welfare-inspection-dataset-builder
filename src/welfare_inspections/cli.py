@@ -10,9 +10,9 @@ from rich.console import Console
 
 from welfare_inspections import __version__
 from welfare_inspections.collect.portal_discovery import (
-    CANONICAL_SOURCE_URL,
     discover_source_documents,
 )
+from welfare_inspections.collect.settings import DiscoverySettings
 
 app = typer.Typer(
     name="welfare-inspections",
@@ -21,6 +21,7 @@ app = typer.Typer(
     invoke_without_command=True,
 )
 console = Console()
+settings = DiscoverySettings()
 
 
 def _version_callback(value: bool) -> None:
@@ -63,19 +64,19 @@ def discover(
     start_url: Annotated[
         str,
         typer.Option(help="Gov.il dynamic collector URL to start from."),
-    ] = CANONICAL_SOURCE_URL,
+    ] = settings.start_url,
     max_pages: Annotated[
         int,
         typer.Option(min=1, help="Maximum collector pages to inspect."),
-    ] = 5,
+    ] = settings.max_pages,
     page_size: Annotated[
         int,
         typer.Option(min=1, help="Skip increment between collector pages."),
-    ] = 10,
+    ] = settings.page_size,
     request_delay_seconds: Annotated[
         float,
         typer.Option(min=0.0, help="Delay between page requests."),
-    ] = 1.0,
+    ] = settings.request_delay_seconds,
 ) -> None:
     """Manually probe Gov.il and write a local source manifest."""
     records, run_diagnostics = discover_source_documents(

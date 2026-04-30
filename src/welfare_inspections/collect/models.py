@@ -18,7 +18,9 @@ def source_document_id_from(
     item_url: str,
     pdf_url: str,
 ) -> str:
-    source_key = govil_item_slug or item_url or pdf_url
+    # The item URL can fall back to a shared page URL, so use the PDF URL when
+    # a stable Gov.il item slug is unavailable.
+    source_key = govil_item_slug or pdf_url
     digest = sha256(source_key.encode("utf-8")).hexdigest()[:16]
     return f"source-doc-{digest}"
 

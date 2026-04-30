@@ -73,7 +73,7 @@ def page_signature(html: str) -> str:
 def _is_pdf_link(href: str) -> bool:
     parsed = urlparse(href)
     path = parsed.path.lower()
-    return path.endswith(".pdf") or "/blobfolder/" in path and "pdf" in path
+    return path.endswith(".pdf") or ("/blobfolder/" in path and "pdf" in path)
 
 
 def _record_container(link: Tag) -> Tag:
@@ -149,7 +149,10 @@ def _parse_date(text: str) -> datetime | None:
         if not match:
             continue
         parts = {key: int(value) for key, value in match.groupdict().items()}
-        return datetime(parts["year"], parts["month"], parts["day"], tzinfo=UTC)
+        try:
+            return datetime(parts["year"], parts["month"], parts["day"], tzinfo=UTC)
+        except ValueError:
+            continue
     return None
 
 

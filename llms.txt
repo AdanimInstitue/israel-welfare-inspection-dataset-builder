@@ -18,6 +18,7 @@ src/
       models.py             Pydantic source discovery contracts
       portal_discovery.py   skip-based discovery orchestration
       portal_parser.py      Gov.il-like HTML source record parser
+      settings.py           environment-configurable discovery defaults
 
 schemas/
   report.schema.json       placeholder report contract

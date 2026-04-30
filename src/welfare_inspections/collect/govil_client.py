@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 import httpx
 from tenacity import (
+    RetryError,
     retry,
     retry_if_exception_type,
     stop_after_attempt,
@@ -54,6 +55,14 @@ class GovilClient:
             },
         )
 
+    @retry(
+        retry=retry_if_exception_type(httpx.RequestError),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=8),
+    )
+    def _get_with_retries(self, url: str) -> httpx.Response:
+        return self._client.get(url)
+
     def close(self) -> None:
         self._client.close()
 
@@ -63,22 +72,22 @@ class GovilClient:
     def __exit__(self, *_exc: object) -> None:
         self.close()
 
-    @retry(
-        retry=retry_if_exception_type(httpx.RequestError),
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=1, max=8),
-        reraise=True,
-    )
     def fetch(self, url: str) -> PageFetch:
         started = time.monotonic()
         try:
-            response = self._client.get(url)
-        except httpx.RequestError as exc:
+            response = self._get_with_retries(url)
+        except RetryError as exc:
             elapsed = time.monotonic() - started
+            last_exception = exc.last_attempt.exception()
+            error = (
+                last_exception.__class__.__name__
+                if last_exception is not None
+                else exc.__class__.__name__
+            )
             diagnostic = HttpDiagnostic(
                 url=url,
                 elapsed_seconds=elapsed,
-                error=exc.__class__.__name__,
+                error=error,
             )
             return PageFetch(url=url, html="", diagnostic=diagnostic)
 
