@@ -20,3 +20,14 @@ class DiscoverySettings(BaseSettings):
     max_pages: int = Field(default=5, ge=1)
     page_size: int = Field(default=10, ge=1)
     request_delay_seconds: float = Field(default=1.0, ge=0)
+
+
+class DownloadSettings(BaseSettings):
+    """Environment-configurable defaults for manual PDF downloads."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="WELFARE_INSPECTIONS_DOWNLOAD_",
+        extra="ignore",
+    )
+
+    request_delay_seconds: float = Field(default=1.0, ge=0)

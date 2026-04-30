@@ -14,11 +14,12 @@ src/
     cli.py           Typer CLI entrypoint with manual discovery command
     collect/
       govil_client.py       conservative manual Gov.il HTTP client
-      manifest.py           source JSONL and diagnostics writers
+      manifest.py           source JSONL and diagnostics readers/writers
       models.py             Pydantic source discovery contracts
+      pdf_download.py       manual PDF download/checksum manifest layer
       portal_discovery.py   skip-based HTML/structured-endpoint orchestration
       portal_parser.py      Gov.il-like HTML and DynamicCollector parser
-      settings.py           environment-configurable discovery defaults
+      settings.py           environment-configurable manual command defaults
 
 schemas/
   report.schema.json       placeholder report contract
@@ -29,6 +30,7 @@ schemas/
 tests/
   test_imports.py      package and CLI smoke tests
   test_docs_exist.py   docs/schema existence and content-contract tests
+  test_pdf_download.py mocked manifest/download/checksum tests
   test_source_discovery.py mocked discovery/parser/manifest tests
 
 docs/

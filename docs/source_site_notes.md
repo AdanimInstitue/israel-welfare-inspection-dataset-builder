@@ -9,8 +9,10 @@ Ministry of Welfare and Social Affairs / Ministry of Welfare and Social
 Security to publish public inspection and supervision reports for out-of-home
 welfare facilities, including hostels, residential centers, and care facilities.
 
-PR 2 adds an inert-by-default discovery prototype. It is run only by manual
-local command and is tested only with mocked HTML/HTTP responses.
+PR 2 adds an inert-by-default discovery prototype. PR 3 adds an
+inert-by-default downloader that consumes the discovery manifest and downloads
+only the public `pdf_url` values when manually invoked. Both stages are tested
+only with mocked HTML/HTTP responses.
 
 ## Discovery Strategy
 
@@ -89,8 +91,20 @@ welfare-inspections discover \
   --diagnostics outputs/discovery_diagnostics.json
 ```
 
-Generated outputs are ignored by git and should be inspected locally before
-being used by later PRs.
+Manual PR 3 download command:
+
+```bash
+welfare-inspections download \
+  --source-manifest outputs/source_manifest.jsonl \
+  --output-manifest outputs/download_manifest.jsonl \
+  --diagnostics outputs/download_diagnostics.json \
+  --download-dir downloads/pdfs
+```
+
+Generated outputs and downloaded PDFs are ignored by git and should be inspected
+locally before being used by later PRs. The downloader records per-record HTTP
+diagnostics, blocked responses, checksum mismatches, and non-fatal download
+failures without parsing or OCRing PDFs.
 
 ## Required Source Record
 

@@ -88,3 +88,39 @@ class DiscoveryRunDiagnostics(BaseModel):
     stop_reason: str | None = None
     notes: list[str] = Field(default_factory=list)
     extra: dict[str, Any] = Field(default_factory=dict)
+
+
+class DownloadRecordDiagnostic(BaseModel):
+    """Per-source-record diagnostics for one manual PDF download attempt."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_document_id: str
+    pdf_url: str
+    status: str
+    local_path: str | None = None
+    pdf_sha256: str | None = None
+    error: str | None = None
+    http_diagnostic: HttpDiagnostic | None = None
+    checked_at: datetime = Field(default_factory=utc_now)
+
+
+class DownloadRunDiagnostics(BaseModel):
+    """Sidecar diagnostics for one manual PDF download run."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    started_at: datetime = Field(default_factory=utc_now)
+    finished_at: datetime | None = None
+    source_manifest_path: str
+    output_manifest_path: str
+    download_dir: str
+    total_records: int = 0
+    downloaded_records: int = 0
+    skipped_existing_records: int = 0
+    failed_records: int = 0
+    checksum_mismatch_records: int = 0
+    blocked_responses: int = 0
+    record_diagnostics: list[DownloadRecordDiagnostic] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+    extra: dict[str, Any] = Field(default_factory=dict)
