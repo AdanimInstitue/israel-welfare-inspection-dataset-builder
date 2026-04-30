@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import csv
 import json
+import shutil
+import tempfile
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -27,6 +29,8 @@ from welfare_inspections.collect.models import (
 )
 
 logger = structlog.get_logger(__name__)
+REPO_ROOT = Path(__file__).resolve().parents[3]
+IGNORED_OUTPUT_ROOT = REPO_ROOT / "outputs"
 
 REPORT_CSV_COLUMNS = [
     "report_id",
@@ -75,9 +79,9 @@ def export_reports_from_metadata(
     output_dir: Path,
 ) -> ExportRunDiagnostics:
     """Validate PR 5 metadata and write local canonical report exports."""
+    _validate_local_output_dir(output_dir)
     jsonl_output_path = output_dir / "reports.jsonl"
     csv_output_path = output_dir / "reports.csv"
-    diagnostics_path = output_dir / "export_diagnostics.json"
     run_diagnostics = ExportRunDiagnostics(
         metadata_path=str(metadata_path),
         metadata_diagnostics_path=str(metadata_diagnostics_path),
@@ -86,27 +90,12 @@ def export_reports_from_metadata(
         csv_output_path=str(csv_output_path),
     )
 
-    parse_diagnostics_by_report: dict[
-        str,
-        list[MetadataParseRecordDiagnostic],
-    ] = {}
-    try:
-        metadata_diagnostics = MetadataParseRunDiagnostics.model_validate_json(
-            metadata_diagnostics_path.read_text(encoding="utf-8")
-        )
-    except (OSError, ValidationError, ValueError) as exc:
-        run_diagnostics.notes.append(
-            f"Metadata diagnostics could not be read or validated: {exc}"
-        )
-        metadata_diagnostics = None
-
-    if metadata_diagnostics is not None:
-        for diagnostic in metadata_diagnostics.record_diagnostics:
-            if diagnostic.report_id:
-                parse_diagnostics_by_report.setdefault(
-                    diagnostic.report_id,
-                    [],
-                ).append(diagnostic)
+    metadata_diagnostics = _read_required_metadata_diagnostics(
+        metadata_diagnostics_path
+    )
+    parse_diagnostics_by_report = _parse_diagnostics_by_report_id(
+        metadata_diagnostics
+    )
 
     seen_report_ids: set[str] = set()
     exported_rows: list[CanonicalReportRow] = []
@@ -161,11 +150,13 @@ def export_reports_from_metadata(
         run_diagnostics.exported_records += 1
         run_diagnostics.record_diagnostics.append(base_diagnostic)
 
-    write_report_jsonl(jsonl_output_path, exported_rows)
-    write_report_csv(csv_output_path, exported_rows)
     run_diagnostics.diagnostic_records = len(run_diagnostics.record_diagnostics)
     run_diagnostics.finished_at = utc_now()
-    write_export_diagnostics(diagnostics_path, run_diagnostics)
+    _write_export_artifacts(
+        output_dir=output_dir,
+        rows=exported_rows,
+        diagnostics=run_diagnostics,
+    )
     logger.info(
         "export_complete",
         records=run_diagnostics.total_records,
@@ -174,6 +165,80 @@ def export_reports_from_metadata(
         duplicates=run_diagnostics.duplicate_id_records,
     )
     return run_diagnostics
+
+
+def _validate_local_output_dir(output_dir: Path) -> None:
+    resolved_output_dir = output_dir.resolve()
+    resolved_repo_root = REPO_ROOT.resolve()
+    resolved_ignored_root = IGNORED_OUTPUT_ROOT.resolve()
+    if (
+        resolved_output_dir == resolved_ignored_root
+        or resolved_ignored_root in resolved_output_dir.parents
+    ):
+        return
+    if (
+        resolved_output_dir == resolved_repo_root
+        or resolved_repo_root in resolved_output_dir.parents
+    ):
+        msg = (
+            "Export output_dir must be under the ignored local outputs/ "
+            "directory when writing inside the repository."
+        )
+        raise ValueError(msg)
+
+
+def _read_required_metadata_diagnostics(
+    path: Path,
+) -> MetadataParseRunDiagnostics:
+    try:
+        return MetadataParseRunDiagnostics.model_validate_json(
+            path.read_text(encoding="utf-8")
+        )
+    except (OSError, ValidationError, ValueError) as exc:
+        msg = f"Metadata diagnostics could not be read or validated: {path}"
+        raise ValueError(msg) from exc
+
+
+def _parse_diagnostics_by_report_id(
+    diagnostics: MetadataParseRunDiagnostics,
+) -> dict[str, list[MetadataParseRecordDiagnostic]]:
+    parse_diagnostics_by_report: dict[
+        str,
+        list[MetadataParseRecordDiagnostic],
+    ] = {}
+    for diagnostic in diagnostics.record_diagnostics:
+        if diagnostic.report_id:
+            parse_diagnostics_by_report.setdefault(
+                diagnostic.report_id,
+                [],
+            ).append(diagnostic)
+    return parse_diagnostics_by_report
+
+
+def _write_export_artifacts(
+    *,
+    output_dir: Path,
+    rows: list[CanonicalReportRow],
+    diagnostics: ExportRunDiagnostics,
+) -> None:
+    output_dir.parent.mkdir(parents=True, exist_ok=True)
+    temporary_dir = Path(
+        tempfile.mkdtemp(prefix=f".{output_dir.name}.", dir=output_dir.parent)
+    )
+    try:
+        staged_jsonl_path = temporary_dir / "reports.jsonl"
+        staged_csv_path = temporary_dir / "reports.csv"
+        staged_diagnostics_path = temporary_dir / "export_diagnostics.json"
+        write_report_jsonl(staged_jsonl_path, rows)
+        write_report_csv(staged_csv_path, rows)
+        write_export_diagnostics(staged_diagnostics_path, diagnostics)
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+        staged_jsonl_path.replace(output_dir / "reports.jsonl")
+        staged_csv_path.replace(output_dir / "reports.csv")
+        staged_diagnostics_path.replace(output_dir / "export_diagnostics.json")
+    finally:
+        shutil.rmtree(temporary_dir, ignore_errors=True)
 
 
 def canonical_report_row_from_metadata(

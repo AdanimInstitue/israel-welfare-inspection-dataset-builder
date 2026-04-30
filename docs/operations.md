@@ -114,9 +114,13 @@ each report row against the canonical Pydantic contract, writes
 `reports.jsonl`, `reports.csv`, and `export_diagnostics.json` into the ignored
 local output directory, and preserves provenance, raw fields, normalized fields,
 field evidence, warnings, page counts, extraction status/confidence, report IDs,
-and parse diagnostics. Row validation failures, duplicate report IDs, and
-malformed dates are recorded as diagnostics where possible; valid rows continue
-to export. It does not inspect PDFs, collect from Gov.il, OCR, parse
+and parse diagnostics. When writing inside this repository, `--output-dir` must
+be under the ignored `outputs/` directory. Missing or invalid metadata parse
+diagnostics fail the export before any report artifacts are written. Row
+validation failures, duplicate report IDs, and malformed dates are recorded as
+diagnostics where possible; valid rows continue to export. Export artifacts are
+staged before promotion so a serialization failure does not leave a partial new
+artifact set. It does not inspect PDFs, collect from Gov.il, OCR, parse
 finding-level rows, publish data, write to the paired data repository, or
 contact the network.
 

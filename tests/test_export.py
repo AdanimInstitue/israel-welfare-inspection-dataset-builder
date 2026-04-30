@@ -7,7 +7,10 @@ import sys
 from datetime import date
 from pathlib import Path
 
+import pytest
+
 from welfare_inspections import cli
+from welfare_inspections.collect import export as export_module
 from welfare_inspections.collect.export import export_reports_from_metadata
 from welfare_inspections.collect.manifest import write_metadata_parse_diagnostics
 from welfare_inspections.collect.models import (
@@ -189,6 +192,71 @@ def test_export_preserves_warnings_and_parse_diagnostics(tmp_path: Path) -> None
     assert export_diagnostics["record_diagnostics"][0]["warnings"] == [
         "No deterministic district value found in extracted text."
     ]
+
+
+def test_export_rejects_repo_internal_non_ignored_output_dir(tmp_path: Path) -> None:
+    metadata_path = _write_metadata(
+        tmp_path,
+        [_metadata_record("source-doc-guard", "report-guard").model_dump(mode="json")],
+    )
+    diagnostics_path = _write_parse_diagnostics(tmp_path, [])
+
+    with pytest.raises(ValueError, match="outputs/"):
+        export_reports_from_metadata(
+            metadata_path=metadata_path,
+            metadata_diagnostics_path=diagnostics_path,
+            output_dir=export_module.REPO_ROOT / "docs",
+        )
+
+
+def test_export_fails_closed_when_metadata_diagnostics_missing(
+    tmp_path: Path,
+) -> None:
+    metadata_path = _write_metadata(
+        tmp_path,
+        [
+            _metadata_record(
+                "source-doc-missing-diagnostics",
+                "report-missing-diagnostics",
+            ).model_dump(mode="json")
+        ],
+    )
+
+    with pytest.raises(ValueError, match="Metadata diagnostics"):
+        export_reports_from_metadata(
+            metadata_path=metadata_path,
+            metadata_diagnostics_path=tmp_path / "missing-diagnostics.json",
+            output_dir=tmp_path / "exports",
+        )
+
+    assert not (tmp_path / "exports" / "reports.jsonl").exists()
+    assert not (tmp_path / "exports" / "reports.csv").exists()
+    assert not (tmp_path / "exports" / "export_diagnostics.json").exists()
+
+
+def test_export_does_not_promote_partial_artifacts_when_staging_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    record = _metadata_record("source-doc-staging", "report-staging")
+    metadata_path = _write_metadata(tmp_path, [record.model_dump(mode="json")])
+    diagnostics_path = _write_parse_diagnostics(tmp_path, [record])
+
+    def fail_write_report_csv(*args: object, **kwargs: object) -> None:
+        raise OSError("simulated csv failure")
+
+    monkeypatch.setattr(export_module, "write_report_csv", fail_write_report_csv)
+
+    with pytest.raises(OSError, match="simulated csv failure"):
+        export_reports_from_metadata(
+            metadata_path=metadata_path,
+            metadata_diagnostics_path=diagnostics_path,
+            output_dir=tmp_path / "exports",
+        )
+
+    assert not (tmp_path / "exports" / "reports.jsonl").exists()
+    assert not (tmp_path / "exports" / "reports.csv").exists()
+    assert not (tmp_path / "exports" / "export_diagnostics.json").exists()
 
 
 def test_cli_export_invokes_exporter(tmp_path: Path, monkeypatch, capsys) -> None:

@@ -95,7 +95,9 @@ columns and serializes `raw_fields`, `normalized_fields`, `field_evidence`,
 
 PR 6 validates each metadata row before export. Missing required provenance or
 IDs, malformed date values, and duplicate `report_id` values are recorded in
-`export_diagnostics.json` where possible. Valid rows continue to export.
+`export_diagnostics.json` where possible. Valid rows continue to export. The PR
+5 metadata parse diagnostics sidecar is required so exported rows cannot
+silently lose parse diagnostics.
 
 ## `inspection_findings`
 

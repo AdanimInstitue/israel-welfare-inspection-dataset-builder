@@ -46,7 +46,10 @@ validates report-level canonical rows, flattens raw and normalized values for
 local CSV/JSONL export, and carries forward field evidence, page numbers,
 warnings, parse diagnostics, source provenance, page counts, extraction status,
 and extraction confidence. Validation failures are diagnostic records where
-possible so one bad document does not block unrelated valid documents.
+possible so one bad document does not block unrelated valid documents. The
+metadata diagnostics sidecar is required; exports fail closed if it is missing
+or invalid because canonical rows must not lose parse diagnostics. Repository
+local exports are restricted to the ignored `outputs/` tree.
 
 ## Hebrew Normalization
 
