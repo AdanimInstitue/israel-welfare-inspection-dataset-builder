@@ -1,0 +1,83 @@
+# Implementation Plan
+
+## PR 2: Source Discovery Prototype
+
+Tasks:
+
+- Inspect the Gov.il dynamic collector page starting at the canonical `skip=0`
+  URL.
+- Determine whether records are available from HTML, structured endpoint,
+  pagination links, or browser-rendered DOM.
+- Document `skip` behavior and page size.
+- Implement an inert-by-default discovery module that can write source manifest
+  JSONL when run locally.
+- Add tests with mocked HTTP/HTML responses only.
+
+Acceptance criteria:
+
+- No live network access in tests.
+- Manifest fields match the documented source record contract.
+- Source site notes are updated with observed discovery mechanism.
+- Collector uses conservative defaults and clear logging.
+
+## PR 3: PDF Download, Checksum, Manifest Layer
+
+Tasks:
+
+- Implement manifest reader/writer.
+- Download PDFs from source manifest entries.
+- Compute SHA-256 and record HTTP diagnostics.
+- Make downloads resumable and idempotent.
+- Add mocked download tests.
+
+Acceptance criteria:
+
+- Existing files are not redownloaded unless checksum or policy requires it.
+- Download failures produce diagnostics without corrupting manifests.
+- No generated PDFs are committed.
+
+## PR 4: Embedded Text Extraction and Hebrew Normalization
+
+Tasks:
+
+- Add PyMuPDF text extraction.
+- Add pypdf page count/metadata checks.
+- Add Hebrew normalization helpers.
+- Add small synthetic fixture tests.
+
+Acceptance criteria:
+
+- Extracted text preserves canonical logical order.
+- Normalization handles spaces, zero-width characters, punctuation variants, and
+  Hebrew geresh/gershayim variants.
+- OCR remains documented but unimplemented unless separately scoped.
+
+## PR 5: Top-Level Metadata Parser
+
+Tasks:
+
+- Parse report-level fields from extracted text.
+- Return structured values plus raw excerpts, page numbers, confidence, and
+  warnings.
+- Add golden tests for representative synthetic examples.
+
+Acceptance criteria:
+
+- Parser failures create warnings rather than crashing the full parse.
+- Raw and normalized fields remain distinct.
+- Docs/schema contracts are updated if fields change.
+
+## PR 6: Schema Validation and Local Exports
+
+Tasks:
+
+- Expand JSON Schema and Pydantic contracts.
+- Validate canonical rows.
+- Export local CSV and JSONL outputs.
+- Add tests for duplicate IDs, required fields, and malformed dates.
+
+Acceptance criteria:
+
+- Outputs are generated only into local ignored output directories.
+- Builder repo still contains no generated dataset artifacts.
+- Exported rows retain source provenance and parse diagnostics.

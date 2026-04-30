@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AdanimInstitue/israel-welfare-inspection-dataset-builder/schemas/inspection.schema.json",
+  "title": "Inspection Finding",
+  "description": "Placeholder schema for future inspection finding records.",
+  "type": "object",
+  "required": ["finding_id", "report_id"],
+  "properties": {
+    "finding_id": { "type": "string" },
+    "report_id": { "type": "string" },
+    "finding_text": { "type": ["string", "null"] },
+    "extraction_confidence": { "type": ["number", "null"] }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,65 @@
+# israel-welfare-inspection-dataset-builder
+
+Planning/scaffold repository for an authorized public-data transparency ETL
+pipeline. This builder repo contains code, schemas, tests, docs, configs, CI,
+and small reviewed fixtures. Generated dataset artifacts belong in the paired
+data repo: `AdanimInstitue/israel-welfare-inspection-dataset`.
+
+## Core Tree
+
+```text
+src/
+  welfare_inspections/
+    __init__.py      package version
+    cli.py           placeholder CLI entrypoint
+
+schemas/
+  report.schema.json       placeholder report contract
+  facility.schema.json     placeholder facility contract
+  inspection.schema.json   placeholder inspection finding contract
+  datapackage.schema.json  placeholder data-package contract
+
+tests/
+  test_imports.py      package and CLI smoke tests
+  test_docs_exist.py   docs/schema existence and content-contract tests
+
+docs/
+  architecture.md
+  source_site_notes.md
+  schema.md
+  extraction_methodology.md
+  data_quality.md
+  privacy_and_publication_policy.md
+  operations.md
+  roadmap.md
+  implementation_plan.md
+
+data_samples/
+  raw_pdfs/           placeholder only; real PDFs require explicit review
+  expected_outputs/   future text-based golden outputs
+
+.github/
+  workflows/ci.yml
+  workflows/pr-agent-context-refresh.yml
+  pr-agent-context-template.md
+```
+
+## Critical Contracts
+
+- Static agent rules: `AGENTS.md`
+- Dynamic agent state: `.agent-plan.md`
+- Canonical source URL and pagination notes: `docs/source_site_notes.md`
+- Canonical entity model: `docs/schema.md`
+- Deterministic-first parsing strategy: `docs/extraction_methodology.md`
+- Fixture policy and quality model: `docs/data_quality.md`
+- Privacy, disclaimer, and CC BY 4.0 publication policy:
+  `docs/privacy_and_publication_policy.md`
+- Immediate roadmap: `docs/roadmap.md` and `docs/implementation_plan.md`
+
+## Automation
+
+- Local validation: `python -m pip install -e ".[dev]"`, `ruff check .`,
+  `pytest`
+- CI: `.github/workflows/ci.yml`
+- PR context comments and patch coverage: `pr-agent-context` job in CI
+- Review/check refresh comments: `.github/workflows/pr-agent-context-refresh.yml`

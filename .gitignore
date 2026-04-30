@@ -206,6 +206,17 @@ tempCodeRunnerFile.py
 # Ruff stuff:
 .ruff_cache/
 
+# Project-local generated artifacts from pipeline runs are ignored here. The
+# canonical generated dataset belongs in the paired data repository, not this
+# builder repository. Small test fixtures are allowed only when intentionally
+# reviewed; raw PDF fixtures should be added in later PRs with explicit
+# provenance/licensing notes and unignored by name if needed.
+data/
+outputs/
+artifacts/
+data_samples/raw_pdfs/*.pdf
+data_samples/raw_pdfs/*.PDF
+
 # PyPI configuration file
 .pypirc
 

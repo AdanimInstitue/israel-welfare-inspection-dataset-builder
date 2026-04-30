@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AdanimInstitue/israel-welfare-inspection-dataset-builder/schemas/datapackage.schema.json",
+  "title": "Data Package",
+  "description": "Placeholder schema for future data repository datapackage metadata.",
+  "type": "object",
+  "required": ["name", "license"],
+  "properties": {
+    "name": { "type": "string" },
+    "license": { "type": "string", "const": "CC-BY-4.0" }
+  },
+  "additionalProperties": true
+}

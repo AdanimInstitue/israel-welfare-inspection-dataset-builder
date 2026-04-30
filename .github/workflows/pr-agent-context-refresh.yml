@@ -1,0 +1,101 @@
+name: pr-agent-context-refresh
+
+on:
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+  pull_request_review_comment:
+    types: [created, edited, deleted]
+  check_run:
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      pull_request_number:
+        description: Pull request number to refresh explicitly.
+        required: true
+        type: string
+      pull_request_base_sha:
+        description: Base SHA for the explicit refresh target.
+        required: true
+        type: string
+      pull_request_head_sha:
+        description: Head SHA for the explicit refresh target.
+        required: true
+        type: string
+      trigger_event_name:
+        description: Synthetic trigger event name used in rendered metadata.
+        required: false
+        default: workflow_dispatch
+        type: string
+      trigger_event_action:
+        description: Synthetic trigger event action used in rendered metadata.
+        required: false
+        default: ""
+        type: string
+
+concurrency:
+  group: >-
+    ${{
+      github.event_name == 'workflow_dispatch' &&
+      format(
+        '{0}-{1}-{2}',
+        github.workflow,
+        github.event.inputs.pull_request_number,
+        github.event.inputs.pull_request_head_sha
+      ) ||
+      format(
+        '{0}-{1}',
+        github.workflow,
+        github.event.pull_request.number ||
+        github.event.check_run.pull_requests[0].number ||
+        github.event.check_run.head_sha ||
+        github.ref_name ||
+        github.sha
+      )
+    }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+
+jobs:
+  pr-agent-context:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'pull_request_review' &&
+        github.event.pull_request.head.repo.full_name == github.repository
+      ) ||
+      (
+        github.event_name == 'pull_request_review_comment' &&
+        github.event.pull_request.head.repo.full_name == github.repository
+      ) ||
+      (
+        github.event_name == 'check_run' &&
+        github.event.action == 'completed' &&
+        github.event.check_run.app.slug != 'github-actions' &&
+        toJson(github.event.check_run.pull_requests) != '[]' &&
+        github.event.check_run.pull_requests[0].head.repo.full_name == github.repository
+      )
+    uses: shaypal5/pr-agent-context/.github/workflows/pr-agent-context.yml@v4
+    with:
+      tool_ref: v4
+      execution_mode: refresh
+      trigger_event_name_override: ${{ github.event.inputs.trigger_event_name || '' }}
+      trigger_event_action_override: ${{ github.event.inputs.trigger_event_action || '' }}
+      pull_request_number_override: ${{ github.event.inputs.pull_request_number || '' }}
+      pull_request_base_sha_override: ${{ github.event.inputs.pull_request_base_sha || '' }}
+      pull_request_head_sha_override: ${{ github.event.inputs.pull_request_head_sha || '' }}
+      publish_mode: append
+      publish_all_clear_comments_in_refresh: false
+      target_patch_coverage: "100"
+      include_review_comments: true
+      include_failing_checks: true
+      include_patch_coverage: true
+      enable_cross_run_coverage_lookup: true
+      wait_for_reviews_to_settle: true
+      coverage_artifact_prefix: pr-agent-context-coverage
+      coverage_source_workflows: CI
+      debug_artifacts: true
+      prompt_template_file: .github/pr-agent-context-template.md
