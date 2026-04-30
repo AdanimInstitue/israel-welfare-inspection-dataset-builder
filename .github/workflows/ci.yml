@@ -26,4 +26,33 @@ jobs:
         run: ruff check .
 
       - name: Run tests
-        run: pytest
+        run: pytest --cov=welfare_inspections --cov-report=term-missing
+
+      - name: Upload raw coverage data for pr-agent-context
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-agent-context-coverage-ubuntu-py312
+          path: .coverage*
+          include-hidden-files: true
+          if-no-files-found: ignore
+
+  pr-agent-context:
+    name: PR agent context
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    needs: [validate]
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+    uses: shaypal5/pr-agent-context/.github/workflows/pr-agent-context.yml@v4
+    with:
+      tool_ref: v4
+      publish_mode: append
+      target_patch_coverage: "100"
+      include_review_comments: true
+      include_failing_checks: true
+      include_patch_coverage: true
+      coverage_artifact_prefix: pr-agent-context-coverage
+      debug_artifacts: true
+      prompt_template_file: .github/pr-agent-context-template.md

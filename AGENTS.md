@@ -1,73 +1,80 @@
 # Agent Instructions
 
-Treat this repository as the builder/code repository for an authorized
-public-data transparency project conducted by Adanim Institute, a
-semi-governmental public-policy research institute, in collaboration with the
-Israeli Ministry of Welfare and the Taub Institute.
+Keep this file concise and actionable. Put dynamic state in `.agent-plan.md`;
+put project design detail in `docs/`.
 
-## Boundaries
+## Commands
 
-- Preserve the builder/data repository split.
-- Keep ETL source code, parser logic, discovery logic, tests, schemas, configs,
-  documentation, CI, and small fixtures in this builder repository.
-- Do not commit generated datasets, release snapshots, downloaded PDFs, or large
-  binary artifacts to this builder repository.
-- Generated open dataset artifacts belong in
+- Install dev environment: `python -m pip install -e ".[dev]"`
+- Lint: `ruff check .`
+- Test: `pytest`
+- CI-equivalent local check: `ruff check . && pytest`
+- CLI smoke check: `python -m welfare_inspections.cli --help`
+
+## Git And PR Rules
+
+- Default branch prefix: `codex/`.
+- Work for PR #1 stays on `codex/pr1-planning-scaffold`.
+- Use repo-specific git and GitHub MCP tools first.
+- Use `git` or `gh` only when the required MCP action is unavailable or blocked.
+- Feature/PR work is incomplete until a non-draft, labeled GitHub PR with a
+  detailed description is open.
+- Assign a relevant GitHub milestone when one exists.
+- Do not commit secrets, credentials, tokens, or private local config.
+
+## Repository Boundary
+
+- This repo is the builder/code repo for an authorized public-data transparency
+  project by Adanim Institute with the Ministry of Welfare and the Taub
+  Institute.
+- Keep source code, schemas, tests, configs, docs, CI, and small reviewed
+  fixtures here.
+- Do not commit generated datasets, release snapshots, downloaded PDFs from
+  normal runs, or large binary artifacts here.
+- Generated dataset outputs belong in
   `AdanimInstitue/israel-welfare-inspection-dataset`.
-- Do not publish directly to the data repository from local scripts. Future
-  publication must use a PR-based flow.
-- Do not add secrets, credentials, tokens, or private configuration to the repo.
+- Publication to the data repo must be PR-based; do not push directly to `main`.
 
-## Source Collection
+## PR 1 Scope
 
-- The canonical source portal starts at
-  `https://www.gov.il/he/departments/dynamiccollectors/molsa-supervision-frames-reports?skip=0`.
-- Investigate Gov.il `skip` pagination before implementing source discovery.
+- PR 1 is planning/scaffold only.
+- Do not implement Gov.il collection, browser automation, PDF parsing, OCR,
+  dataset exports, publication, scheduled build workflows, or live
+  network-dependent tests.
+
+## Source Collection Constraints
+
+- Canonical source URL:
+  `https://www.gov.il/he/departments/dynamiccollectors/molsa-supervision-frames-reports?skip=0`
+- Investigate `skip=0` pagination before implementing source discovery.
 - Prefer stable structured data access when available.
-- Use browser-rendered collection only when appropriate and necessary for the
-  public Gov.il portal.
-- Respect the public portal's operational constraints: conservative request
-  rates, no aggressive concurrency, clear logging, retries with backoff, and
+- Use browser-rendered collection only when necessary and appropriate.
+- Use conservative request rates, clear logging, retries with backoff, and
   graceful failures.
-- Do not attempt to access non-public information or bypass access controls.
-- Preserve source provenance for every discovered document and every derived row.
+- Do not access or attempt to access non-public information.
 
-## Parsing and Data Contracts
+## Parsing And Data Rules
 
 - Prefer deterministic, auditable parsing before AI or LLM extraction.
-- Do not introduce opaque LLM-based extraction for v1.
-- Every parsed field should eventually be traceable to source document, page,
-  raw excerpt, extraction method, confidence, and warning status.
-- Treat parsing failures as row-level warnings where possible.
+- Do not use opaque LLM-based extraction for v1.
+- Preserve provenance for every discovered document and every derived row.
+- Treat parse failures as row-level warnings where possible.
 - Keep Hebrew canonical text in logical order.
-- Avoid visual bidi transformations in stored data. Debug/display tools may use
-  bidi rendering separately.
-- Avoid extracting or publishing sensitive personal data unless explicitly,
-  legally, and ethically approved.
+- Do not store visual bidi transformations in canonical data.
+- Do not intentionally extract or publish sensitive personal data unless
+  explicitly approved legally and ethically.
 
-## Publication and Licensing
+## Fixture Rules
 
-- Maintain CC BY 4.0 publication target requirements for the derived dataset.
-- Preserve attribution to the Israeli Ministry of Welfare as source publisher of
-  the original PDFs.
-- Distinguish official source PDFs from unofficial parsed derived data.
-- Include OCR/parsing accuracy and privacy disclaimers in publication materials.
+- Small, clearly licensed, reviewable fixtures are allowed.
+- Normal-run downloaded PDFs must not be committed.
+- Real source PDF fixtures require explicit provenance/licensing notes in the PR
+  that adds them.
+- Golden expected outputs should be text-based where possible.
 
-## Engineering Standards
+## Automation
 
-- Keep functions small and typed.
-- Use Pydantic models for future external/internal contracts.
-- Use structured logging for future pipeline stages.
-- Use deterministic IDs where possible.
-- Avoid hidden global state and hard-coded local absolute paths.
-- Make the pipeline resumable and idempotent.
-- Prefer JSONL manifests for append/readability.
-- Update docs when contracts change.
-- Keep CI passing.
-
-## PR Completion
-
-Feature work and PR work are incomplete until a properly labeled, non-draft
-GitHub PR with a detailed description is open. When a relevant GitHub milestone
-exists, assign it before handoff. Use repo-specific git and GitHub MCP tools
-first, and use CLI fallbacks only for actions unsupported by the MCPs.
+- CI must stay offline and deterministic for PR 1.
+- `pr-agent-context` is integrated through GitHub Actions with append-mode PR
+  comments, raw `.coverage*` artifacts, debug artifacts, and refresh-mode reuse.
+- Do not add weekly build or publish workflows in PR 1.
