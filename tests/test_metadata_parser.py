@@ -6,8 +6,12 @@ import sys
 from pathlib import Path
 
 from welfare_inspections import cli
-from welfare_inspections.collect.manifest import write_text_extraction_diagnostics
+from welfare_inspections.collect.manifest import (
+    read_text_extraction_diagnostics,
+    write_text_extraction_diagnostics,
+)
 from welfare_inspections.collect.metadata_parser import (
+    _extraction_confidence,
     parse_metadata_from_text_diagnostics,
     parse_numeric_date,
     split_extracted_pages,
@@ -177,6 +181,56 @@ def test_parse_metadata_handles_unavailable_extraction_as_diagnostic(
     )
 
 
+def test_parse_metadata_records_missing_text_path_as_diagnostic(
+    tmp_path: Path,
+) -> None:
+    diagnostics_path = _write_diagnostics(
+        tmp_path,
+        [_diagnostic("missing-text-path", None)],
+    )
+
+    diagnostics = parse_metadata_from_text_diagnostics(
+        text_diagnostics_path=diagnostics_path,
+        output_path=tmp_path / "metadata.jsonl",
+        diagnostics_path=tmp_path / "metadata-diagnostics.json",
+    )
+
+    payload = json.loads(
+        (tmp_path / "metadata-diagnostics.json").read_text(encoding="utf-8")
+    )
+    assert diagnostics.failed_records == 1
+    assert payload["record_diagnostics"][0]["status"] == "failed"
+    assert payload["record_diagnostics"][0]["error"] == "missing_text_path"
+    assert payload["record_diagnostics"][0]["warnings"][0]["message"] == (
+        "Cannot parse metadata because the extraction diagnostics have no text_path."
+    )
+
+
+def test_parse_metadata_records_missing_text_file_as_diagnostic(
+    tmp_path: Path,
+) -> None:
+    diagnostics_path = _write_diagnostics(
+        tmp_path,
+        [_diagnostic("missing-text-file", tmp_path / "missing.txt")],
+    )
+
+    diagnostics = parse_metadata_from_text_diagnostics(
+        text_diagnostics_path=diagnostics_path,
+        output_path=tmp_path / "metadata.jsonl",
+        diagnostics_path=tmp_path / "metadata-diagnostics.json",
+    )
+
+    payload = json.loads(
+        (tmp_path / "metadata-diagnostics.json").read_text(encoding="utf-8")
+    )
+    assert diagnostics.failed_records == 1
+    assert payload["record_diagnostics"][0]["status"] == "failed"
+    assert payload["record_diagnostics"][0]["error"] == "text_file_not_found"
+    assert payload["record_diagnostics"][0]["warnings"][0]["message"].startswith(
+        "Cannot parse metadata because text file was not found:"
+    )
+
+
 def test_parse_metadata_records_unreadable_text_and_continues(
     tmp_path: Path,
 ) -> None:
@@ -260,6 +314,56 @@ def test_parse_metadata_allows_single_embedded_facility_id(tmp_path: Path) -> No
     assert facility_id["warnings"] == []
 
 
+def test_parse_metadata_lowers_extraction_confidence_for_warnings(
+    tmp_path: Path,
+) -> None:
+    text_path = _write_text(
+        tmp_path,
+        "source-doc-extraction-warning",
+        "--- page 1 ---\nשם המסגרת: בית\n",
+    )
+    source_diagnostic = _diagnostic("extraction-warning", text_path)
+    source_diagnostic.warnings.append("no_embedded_text_on_page")
+    diagnostics_path = _write_diagnostics(tmp_path, [source_diagnostic])
+
+    parse_metadata_from_text_diagnostics(
+        text_diagnostics_path=diagnostics_path,
+        output_path=tmp_path / "metadata.jsonl",
+        diagnostics_path=tmp_path / "metadata-diagnostics.json",
+    )
+
+    row = _read_jsonl(tmp_path / "metadata.jsonl")[0]
+    assert row["extraction_confidence"] == 0.75
+
+
+def test_parse_metadata_records_skipped_existing_confidence(tmp_path: Path) -> None:
+    text_path = _write_text(
+        tmp_path,
+        "source-doc-skipped-existing",
+        "--- page 1 ---\nשם המסגרת: בית\n",
+    )
+    source_diagnostic = _diagnostic("skipped-existing", text_path)
+    source_diagnostic.status = "skipped_existing"
+    diagnostics_path = _write_diagnostics(tmp_path, [source_diagnostic])
+
+    parse_metadata_from_text_diagnostics(
+        text_diagnostics_path=diagnostics_path,
+        output_path=tmp_path / "metadata.jsonl",
+        diagnostics_path=tmp_path / "metadata-diagnostics.json",
+    )
+
+    row = _read_jsonl(tmp_path / "metadata.jsonl")[0]
+    assert row["extraction_status"] == "skipped_existing"
+    assert row["extraction_confidence"] == 0.65
+
+
+def test_extraction_confidence_is_zero_for_unparseable_status() -> None:
+    source_diagnostic = _diagnostic("confidence-failed", None)
+    source_diagnostic.status = "failed"
+
+    assert _extraction_confidence(source_diagnostic) == 0.0
+
+
 def test_split_extracted_pages_without_markers_preserves_unknown_page() -> None:
     pages = split_extracted_pages("שם המסגרת: ללא סימון")
 
@@ -273,6 +377,20 @@ def test_parse_numeric_date_is_deterministic() -> None:
     assert parse_numeric_date("31.12.2024").isoformat() == "2024-12-31"
     assert parse_numeric_date("32/13/2024") is None
     assert parse_numeric_date("ינואר 2024") is None
+
+
+def test_read_text_extraction_diagnostics_rejects_invalid_json(tmp_path: Path) -> None:
+    diagnostics_path = tmp_path / "bad-diagnostics.json"
+    diagnostics_path.write_text("{not-json", encoding="utf-8")
+
+    try:
+        read_text_extraction_diagnostics(diagnostics_path)
+    except ValueError as exc:
+        assert str(exc) == (
+            f"Invalid text extraction diagnostics JSON at {diagnostics_path}"
+        )
+    else:
+        raise AssertionError("expected invalid diagnostics to raise ValueError")
 
 
 def test_cli_parse_metadata_invokes_metadata_parser(

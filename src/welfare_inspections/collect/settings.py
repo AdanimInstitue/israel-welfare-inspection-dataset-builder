@@ -42,12 +42,3 @@ class ParseSettings(BaseSettings):
     )
 
     overwrite: bool = False
-
-
-class MetadataParseSettings(BaseSettings):
-    """Environment-configurable defaults for manual metadata parsing."""
-
-    model_config = SettingsConfigDict(
-        env_prefix="WELFARE_INSPECTIONS_METADATA_PARSE_",
-        extra="ignore",
-    )

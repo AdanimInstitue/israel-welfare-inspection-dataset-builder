@@ -20,7 +20,6 @@ from welfare_inspections.collect.portal_discovery import (
 from welfare_inspections.collect.settings import (
     DiscoverySettings,
     DownloadSettings,
-    MetadataParseSettings,
     ParseSettings,
 )
 
@@ -243,7 +242,6 @@ def parse_metadata(
     ] = Path("outputs/metadata_parse_diagnostics.json"),
 ) -> None:
     """Manually parse top-level report metadata from extracted text."""
-    MetadataParseSettings()
     run_diagnostics = parse_metadata_from_text_diagnostics(
         text_diagnostics_path=text_diagnostics,
         output_path=output,
