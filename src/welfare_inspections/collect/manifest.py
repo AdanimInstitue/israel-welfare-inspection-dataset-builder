@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from welfare_inspections.collect.models import (
     DiscoveryRunDiagnostics,
     DownloadRunDiagnostics,
+    ExportRunDiagnostics,
     MetadataParseRunDiagnostics,
     ReportMetadataRecord,
     SourceDocumentRecord,
@@ -87,4 +88,8 @@ def write_metadata_parse_diagnostics(
     path: Path,
     diagnostics: MetadataParseRunDiagnostics,
 ) -> None:
+    _write_model_json(path, diagnostics)
+
+
+def write_export_diagnostics(path: Path, diagnostics: ExportRunDiagnostics) -> None:
     _write_model_json(path, diagnostics)

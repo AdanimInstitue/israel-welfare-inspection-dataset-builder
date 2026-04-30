@@ -273,3 +273,83 @@ class MetadataParseRunDiagnostics(BaseModel):
     )
     notes: list[str] = Field(default_factory=list)
     extra: dict[str, Any] = Field(default_factory=dict)
+
+
+class CanonicalReportRow(BaseModel):
+    """Validated local report-level export row."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    report_id: str = Field(min_length=1)
+    source_document_id: str = Field(min_length=1)
+    govil_item_slug: str | None = None
+    govil_item_url: str = Field(min_length=1)
+    pdf_url: str = Field(min_length=1)
+    title: str | None = None
+    language_path: str | None = None
+    pdf_sha256: str | None = None
+    local_path: str | None = None
+    text_path: str | None = None
+    page_count: int | None = Field(default=None, ge=1)
+    extraction_status: str = Field(min_length=1)
+    extraction_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    parsed_at: datetime
+    exported_at: datetime = Field(default_factory=utc_now)
+    facility_name_raw: str | None = None
+    facility_name_normalized: str | None = None
+    facility_id_raw: str | None = None
+    facility_id_normalized: str | None = None
+    facility_type_raw: str | None = None
+    facility_type_normalized: str | None = None
+    district_raw: str | None = None
+    district_normalized: str | None = None
+    administration_raw: str | None = None
+    administration_normalized: str | None = None
+    visit_type_raw: str | None = None
+    visit_type_normalized: str | None = None
+    visit_date_raw: str | None = None
+    visit_date: date | None = None
+    report_publication_date_raw: str | None = None
+    report_publication_date: date | None = None
+    raw_fields: dict[str, str | None] = Field(default_factory=dict)
+    normalized_fields: dict[str, str | date | None] = Field(default_factory=dict)
+    field_evidence: dict[str, MetadataField] = Field(default_factory=dict)
+    warnings: list[MetadataParseWarning] = Field(default_factory=list)
+    parse_diagnostics: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ExportRecordDiagnostic(BaseModel):
+    """Per-input-row diagnostics for local schema validation and export."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    line_number: int | None = None
+    report_id: str | None = None
+    source_document_id: str | None = None
+    status: str
+    errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    exported: bool = False
+    checked_at: datetime = Field(default_factory=utc_now)
+
+
+class ExportRunDiagnostics(BaseModel):
+    """Sidecar diagnostics for one manual local export run."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    started_at: datetime = Field(default_factory=utc_now)
+    finished_at: datetime | None = None
+    metadata_path: str
+    metadata_diagnostics_path: str
+    output_dir: str
+    jsonl_output_path: str
+    csv_output_path: str
+    total_records: int = 0
+    exported_records: int = 0
+    validation_failed_records: int = 0
+    duplicate_id_records: int = 0
+    diagnostic_records: int = 0
+    record_diagnostics: list[ExportRecordDiagnostic] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+    extra: dict[str, Any] = Field(default_factory=dict)

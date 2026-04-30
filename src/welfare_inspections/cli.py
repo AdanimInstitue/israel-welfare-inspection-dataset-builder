@@ -9,6 +9,7 @@ import typer
 from rich.console import Console
 
 from welfare_inspections import __version__
+from welfare_inspections.collect.export import export_reports_from_metadata
 from welfare_inspections.collect.metadata_parser import (
     parse_metadata_from_text_diagnostics,
 )
@@ -252,6 +253,44 @@ def parse_metadata(
         f"parsed={run_diagnostics.parsed_records}; "
         f"failed={run_diagnostics.failed_records}; "
         f"warnings={run_diagnostics.warning_records}"
+    )
+
+
+@app.command("export")
+def export(
+    metadata: Annotated[
+        Path,
+        typer.Option(
+            "--metadata",
+            help="Path to PR 5 report metadata JSONL.",
+        ),
+    ] = Path("outputs/report_metadata.jsonl"),
+    metadata_diagnostics: Annotated[
+        Path,
+        typer.Option(
+            "--metadata-diagnostics",
+            help="Path to PR 5 metadata parse diagnostics JSON.",
+        ),
+    ] = Path("outputs/metadata_parse_diagnostics.json"),
+    output_dir: Annotated[
+        Path,
+        typer.Option(
+            "--output-dir",
+            help="Ignored local directory for canonical CSV/JSONL exports.",
+        ),
+    ] = Path("outputs/exports"),
+) -> None:
+    """Manually validate parsed metadata and export local report rows."""
+    run_diagnostics = export_reports_from_metadata(
+        metadata_path=metadata,
+        metadata_diagnostics_path=metadata_diagnostics,
+        output_dir=output_dir,
+    )
+    console.print(
+        f"Processed {run_diagnostics.total_records} metadata records; "
+        f"exported={run_diagnostics.exported_records}; "
+        f"validation_failed={run_diagnostics.validation_failed_records}; "
+        f"duplicate_ids={run_diagnostics.duplicate_id_records}"
     )
 
 

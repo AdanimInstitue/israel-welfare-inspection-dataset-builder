@@ -14,6 +14,7 @@ src/
     cli.py           Typer CLI entrypoint with manual discovery command
     collect/
       govil_client.py       conservative manual Gov.il HTTP client
+      export.py             manual schema validation and local report exports
       manifest.py           source JSONL and diagnostics readers/writers
       models.py             Pydantic source discovery contracts
       pdf_download.py       manual PDF download/checksum manifest layer
@@ -25,7 +26,7 @@ src/
     text_normalization.py   deterministic extracted-text normalization helpers
 
 schemas/
-  report.schema.json       placeholder report contract
+  report.schema.json       canonical PR 6 report export row contract
   facility.schema.json     placeholder facility contract
   inspection.schema.json   placeholder inspection finding contract
   datapackage.schema.json  placeholder data-package contract
@@ -36,6 +37,8 @@ tests/
   test_pdf_download.py mocked manifest/download/checksum tests
   test_pdf_text_extraction.py synthetic embedded-text/normalization tests
   test_source_discovery.py mocked discovery/parser/manifest tests
+  test_metadata_parser.py synthetic top-level metadata parser tests
+  test_export.py      synthetic schema validation/local export tests
 
 docs/
   architecture.md
@@ -69,11 +72,12 @@ data_samples/
 - Privacy, disclaimer, and CC BY 4.0 publication policy:
   `docs/privacy_and_publication_policy.md`
 - Immediate roadmap: `docs/roadmap.md` and `docs/implementation_plan.md`
+- Current local report export contract: `schemas/report.schema.json`
 
 ## Automation
 
 - Local validation: `python -m pip install -e ".[dev]"`, `ruff check .`,
-  `pytest`, `python -m welfare_inspections.cli parse-metadata --help`
+  `pytest`, `python -m welfare_inspections.cli export --help`
 - CI: `.github/workflows/ci.yml`
 - PR context comments and patch coverage: `pr-agent-context` job in CI
 - Review/check refresh comments: `.github/workflows/pr-agent-context-refresh.yml`
