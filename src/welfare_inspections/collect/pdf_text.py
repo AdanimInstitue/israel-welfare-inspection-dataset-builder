@@ -48,9 +48,14 @@ def extract_embedded_text_from_manifest(
         diagnostics.record_diagnostics.append(record_diagnostic)
         if record_diagnostic.status == "extracted":
             diagnostics.extracted_records += 1
-        elif record_diagnostic.status in {"missing_local_path", "missing_pdf"}:
+        elif record_diagnostic.status == "skipped_existing":
+            diagnostics.skipped_existing_records += 1
+        elif record_diagnostic.status == "missing_pdf":
             diagnostics.failed_records += 1
             diagnostics.missing_pdf_records += 1
+        elif record_diagnostic.status == "missing_local_path":
+            diagnostics.failed_records += 1
+            diagnostics.missing_local_path_records += 1
         else:
             diagnostics.failed_records += 1
         if record_diagnostic.warnings:
@@ -92,7 +97,9 @@ def _extract_record(
     text_path = text_output_dir / f"{record.source_document_id}.txt"
     diagnostic.text_path = str(text_path)
     if text_path.exists() and not overwrite:
-        diagnostic.warnings.append("existing_text_output_overwritten_disabled")
+        diagnostic.warnings.append("existing_text_output_not_overwritten")
+        diagnostic.status = "skipped_existing"
+        return diagnostic
 
     try:
         page_count, metadata = pdf_page_count_and_metadata(pdf_path)

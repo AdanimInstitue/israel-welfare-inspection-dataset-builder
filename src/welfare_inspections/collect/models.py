@@ -177,6 +177,8 @@ class TextExtractionRunDiagnostics(BaseModel):
     warning_records: int = 0
     failed_records: int = 0
     missing_pdf_records: int = 0
+    missing_local_path_records: int = 0
+    skipped_existing_records: int = 0
     record_diagnostics: list[TextExtractionRecordDiagnostic] = Field(
         default_factory=list
     )

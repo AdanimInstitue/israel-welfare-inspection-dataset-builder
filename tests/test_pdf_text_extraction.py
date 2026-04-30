@@ -106,6 +106,7 @@ def test_extract_embedded_text_records_missing_pdf_diagnostic(tmp_path: Path) ->
 
     assert diagnostics.failed_records == 1
     assert diagnostics.missing_pdf_records == 1
+    assert diagnostics.missing_local_path_records == 0
     assert diagnostics.record_diagnostics[0].status == "missing_pdf"
     assert diagnostics.record_diagnostics[0].error == "local_pdf_not_found"
 
@@ -122,7 +123,61 @@ def test_extract_embedded_text_records_missing_local_path(tmp_path: Path) -> Non
     )
 
     assert diagnostics.failed_records == 1
+    assert diagnostics.missing_pdf_records == 0
+    assert diagnostics.missing_local_path_records == 1
     assert diagnostics.record_diagnostics[0].status == "missing_local_path"
+
+
+def test_extract_embedded_text_skips_existing_output_without_overwrite(
+    tmp_path: Path,
+) -> None:
+    pdf_path = _synthetic_pdf(tmp_path / "report.pdf", ["Fresh text"])
+    record = _record("existing-output", pdf_path)
+    manifest_path = tmp_path / "download_manifest.jsonl"
+    text_output_dir = tmp_path / "texts"
+    text_path = text_output_dir / f"{record.source_document_id}.txt"
+    text_path.parent.mkdir(parents=True)
+    text_path.write_text("stale text\n", encoding="utf-8")
+    write_source_manifest(manifest_path, [record])
+
+    diagnostics = extract_embedded_text_from_manifest(
+        source_manifest_path=manifest_path,
+        text_output_dir=text_output_dir,
+        diagnostics_path=tmp_path / "diagnostics.json",
+    )
+
+    record_diagnostic = diagnostics.record_diagnostics[0]
+    assert diagnostics.extracted_records == 0
+    assert diagnostics.failed_records == 0
+    assert diagnostics.skipped_existing_records == 1
+    assert diagnostics.warning_records == 1
+    assert record_diagnostic.status == "skipped_existing"
+    assert record_diagnostic.warnings == ["existing_text_output_not_overwritten"]
+    assert text_path.read_text(encoding="utf-8") == "stale text\n"
+
+
+def test_extract_embedded_text_overwrites_existing_output_when_requested(
+    tmp_path: Path,
+) -> None:
+    pdf_path = _synthetic_pdf(tmp_path / "report.pdf", ["Fresh text"])
+    record = _record("overwrite-output", pdf_path)
+    manifest_path = tmp_path / "download_manifest.jsonl"
+    text_output_dir = tmp_path / "texts"
+    text_path = text_output_dir / f"{record.source_document_id}.txt"
+    text_path.parent.mkdir(parents=True)
+    text_path.write_text("stale text\n", encoding="utf-8")
+    write_source_manifest(manifest_path, [record])
+
+    diagnostics = extract_embedded_text_from_manifest(
+        source_manifest_path=manifest_path,
+        text_output_dir=text_output_dir,
+        diagnostics_path=tmp_path / "diagnostics.json",
+        overwrite=True,
+    )
+
+    assert diagnostics.extracted_records == 1
+    assert diagnostics.skipped_existing_records == 0
+    assert text_path.read_text(encoding="utf-8") == "--- page 1 ---\nFresh text\n"
 
 
 def test_extract_embedded_text_records_unreadable_pdf(tmp_path: Path) -> None:
@@ -142,6 +197,78 @@ def test_extract_embedded_text_records_unreadable_pdf(tmp_path: Path) -> None:
     assert diagnostics.record_diagnostics[0].status == "failed"
     assert diagnostics.record_diagnostics[0].error
     assert diagnostics.record_diagnostics[0].error.startswith("pdf_metadata_error:")
+
+
+def test_extract_embedded_text_records_pdf_text_extraction_error(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    pdf_path = _synthetic_pdf(tmp_path / "text-error.pdf", ["Embedded text"])
+    record = _record("text-error", pdf_path)
+    manifest_path = tmp_path / "download_manifest.jsonl"
+    write_source_manifest(manifest_path, [record])
+
+    def fail_extract_pdf_pages(_path: Path) -> list[str]:
+        raise ValueError("text extraction failed")
+
+    monkeypatch.setattr(
+        "welfare_inspections.collect.pdf_text.extract_pdf_pages",
+        fail_extract_pdf_pages,
+    )
+
+    diagnostics = extract_embedded_text_from_manifest(
+        source_manifest_path=manifest_path,
+        text_output_dir=tmp_path / "texts",
+        diagnostics_path=tmp_path / "diagnostics.json",
+    )
+
+    assert diagnostics.failed_records == 1
+    assert diagnostics.record_diagnostics[0].status == "failed"
+    assert diagnostics.record_diagnostics[0].error == (
+        "pdf_text_error:text extraction failed"
+    )
+
+
+def test_extract_embedded_text_records_empty_page_warning(tmp_path: Path) -> None:
+    pdf_path = _synthetic_pdf(tmp_path / "empty-page.pdf", ["", "Text page"])
+    record = _record("empty-page", pdf_path)
+    manifest_path = tmp_path / "download_manifest.jsonl"
+    write_source_manifest(manifest_path, [record])
+
+    diagnostics = extract_embedded_text_from_manifest(
+        source_manifest_path=manifest_path,
+        text_output_dir=tmp_path / "texts",
+        diagnostics_path=tmp_path / "diagnostics.json",
+    )
+
+    record_diagnostic = diagnostics.record_diagnostics[0]
+    assert diagnostics.extracted_records == 1
+    assert diagnostics.warning_records == 1
+    assert record_diagnostic.warnings == ["no_embedded_text_on_page"]
+    assert [page.status for page in record_diagnostic.pages] == [
+        "empty_text",
+        "extracted",
+    ]
+
+
+def test_extract_embedded_text_fails_when_no_pages_have_text(tmp_path: Path) -> None:
+    pdf_path = _synthetic_pdf(tmp_path / "image-only.pdf", [""])
+    record = _record("image-only", pdf_path)
+    manifest_path = tmp_path / "download_manifest.jsonl"
+    write_source_manifest(manifest_path, [record])
+
+    diagnostics = extract_embedded_text_from_manifest(
+        source_manifest_path=manifest_path,
+        text_output_dir=tmp_path / "texts",
+        diagnostics_path=tmp_path / "diagnostics.json",
+    )
+
+    record_diagnostic = diagnostics.record_diagnostics[0]
+    assert diagnostics.failed_records == 1
+    assert diagnostics.warning_records == 1
+    assert record_diagnostic.status == "failed"
+    assert record_diagnostic.error == "no_embedded_text_extracted"
+    assert record_diagnostic.warnings == ["no_embedded_text_on_page"]
 
 
 def test_extract_embedded_text_uses_download_manifest_records(tmp_path: Path) -> None:
