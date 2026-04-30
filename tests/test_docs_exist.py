@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
 REQUIRED_DOCS = [
     ".agent-plan.md",
     "docs/architecture.md",
@@ -27,25 +29,29 @@ REQUIRED_SCHEMAS = [
 
 def test_required_docs_exist() -> None:
     for path in REQUIRED_DOCS:
-        assert Path(path).is_file(), f"Missing required documentation: {path}"
+        assert (REPO_ROOT / path).is_file(), f"Missing required documentation: {path}"
 
 
 def test_required_schemas_exist() -> None:
     for path in REQUIRED_SCHEMAS:
-        assert Path(path).is_file(), f"Missing required schema placeholder: {path}"
+        assert (REPO_ROOT / path).is_file(), (
+            f"Missing required schema placeholder: {path}"
+        )
 
 
 def test_docs_preserve_core_project_contracts() -> None:
     docs = {
-        "agent_plan": Path(".agent-plan.md").read_text(),
-        "agents": Path("AGENTS.md").read_text(),
-        "llms": Path("llms.txt").read_text(),
-        "readme": Path("README.md").read_text(),
-        "source_site": Path("docs/source_site_notes.md").read_text(),
-        "privacy": Path("docs/privacy_and_publication_policy.md").read_text(),
-        "extraction": Path("docs/extraction_methodology.md").read_text(),
-        "quality": Path("docs/data_quality.md").read_text(),
-        "roadmap": Path("docs/roadmap.md").read_text(),
+        "agent_plan": (REPO_ROOT / ".agent-plan.md").read_text(),
+        "agents": (REPO_ROOT / "AGENTS.md").read_text(),
+        "llms": (REPO_ROOT / "llms.txt").read_text(),
+        "readme": (REPO_ROOT / "README.md").read_text(),
+        "source_site": (REPO_ROOT / "docs/source_site_notes.md").read_text(),
+        "privacy": (
+            REPO_ROOT / "docs/privacy_and_publication_policy.md"
+        ).read_text(),
+        "extraction": (REPO_ROOT / "docs/extraction_methodology.md").read_text(),
+        "quality": (REPO_ROOT / "docs/data_quality.md").read_text(),
+        "roadmap": (REPO_ROOT / "docs/roadmap.md").read_text(),
     }
 
     assert (
@@ -72,9 +78,11 @@ def test_docs_preserve_core_project_contracts() -> None:
 
 
 def test_pr_agent_context_workflows_use_append_mode_and_coverage() -> None:
-    ci = Path(".github/workflows/ci.yml").read_text()
-    refresh = Path(".github/workflows/pr-agent-context-refresh.yml").read_text()
-    template = Path(".github/pr-agent-context-template.md").read_text()
+    ci = (REPO_ROOT / ".github/workflows/ci.yml").read_text()
+    refresh = (
+        REPO_ROOT / ".github/workflows/pr-agent-context-refresh.yml"
+    ).read_text()
+    template = (REPO_ROOT / ".github/pr-agent-context-template.md").read_text()
 
     assert "shaypal5/pr-agent-context/.github/workflows/pr-agent-context.yml@v4" in ci
     assert "pytest --cov=welfare_inspections" in ci
