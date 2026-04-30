@@ -6,9 +6,9 @@ Tasks:
 
 - Implement a manual source discovery command starting at the canonical `skip=0`
   URL.
-- Determine whether records are available from HTML, structured endpoint,
-  pagination links, or browser-rendered DOM.
-- Document `skip` behavior and page size.
+- Detect whether records are available from server HTML or the public
+  DynamicCollector structured endpoint.
+- Document observed `skip` behavior and page size.
 - Implement an inert-by-default discovery module that can write source manifest
   JSONL when run locally.
 - Write a discovery diagnostics sidecar for HTTP status, block detection,

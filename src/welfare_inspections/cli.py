@@ -21,7 +21,6 @@ app = typer.Typer(
     invoke_without_command=True,
 )
 console = Console()
-settings = DiscoverySettings()
 
 
 def _version_callback(value: bool) -> None:
@@ -62,30 +61,35 @@ def discover(
         ),
     ] = Path("outputs/discovery_diagnostics.json"),
     start_url: Annotated[
-        str,
+        str | None,
         typer.Option(help="Gov.il dynamic collector URL to start from."),
-    ] = settings.start_url,
+    ] = None,
     max_pages: Annotated[
-        int,
+        int | None,
         typer.Option(min=1, help="Maximum collector pages to inspect."),
-    ] = settings.max_pages,
+    ] = None,
     page_size: Annotated[
-        int,
+        int | None,
         typer.Option(min=1, help="Skip increment between collector pages."),
-    ] = settings.page_size,
+    ] = None,
     request_delay_seconds: Annotated[
-        float,
+        float | None,
         typer.Option(min=0.0, help="Delay between page requests."),
-    ] = settings.request_delay_seconds,
+    ] = None,
 ) -> None:
     """Manually probe Gov.il and write a local source manifest."""
+    settings = DiscoverySettings()
     records, run_diagnostics = discover_source_documents(
         output_path=output,
         diagnostics_path=diagnostics,
-        start_url=start_url,
-        max_pages=max_pages,
-        page_size=page_size,
-        request_delay_seconds=request_delay_seconds,
+        start_url=start_url or settings.start_url,
+        max_pages=max_pages or settings.max_pages,
+        page_size=page_size or settings.page_size,
+        request_delay_seconds=(
+            request_delay_seconds
+            if request_delay_seconds is not None
+            else settings.request_delay_seconds
+        ),
     )
     console.print(
         f"Discovered {len(records)} source records; "

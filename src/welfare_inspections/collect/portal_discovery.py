@@ -21,7 +21,9 @@ from welfare_inspections.collect.models import (
 )
 from welfare_inspections.collect.portal_parser import (
     page_signature,
+    parse_dynamic_collector_config,
     parse_source_records,
+    parse_structured_records,
 )
 
 CANONICAL_SOURCE_URL = (
@@ -66,24 +68,53 @@ def discover_source_documents(
                 diagnostics.stop_reason = "http_error_or_empty_response"
                 break
 
-            signature = _signature_digest(page_signature(fetch.html))
-            if signature in seen_signatures:
-                diagnostics.stop_reason = "repeated_page_signature"
-                break
-            seen_signatures.add(signature)
-
             page_records = parse_source_records(
                 fetch.html,
                 page_url=page_url,
                 http_status=fetch.diagnostic.status_code,
                 response_headers=fetch.diagnostic.response_headers,
             )
+
+            if not page_records:
+                config = parse_dynamic_collector_config(fetch.html, page_url=page_url)
+                if config:
+                    diagnostics.attempted_urls.append(config.endpoint_url)
+                    payload = {
+                        "DynamicTemplateID": config.dynamic_template_id,
+                        "QueryFilters": {"skip": {"Query": skip}},
+                        "From": skip,
+                        "ItemUrlName": None,
+                    }
+                    structured_fetch = http_client.post_json(
+                        config.endpoint_url,
+                        payload,
+                        config.x_client_id,
+                    )
+                    diagnostics.http_diagnostics.append(structured_fetch.diagnostic)
+                    if structured_fetch.diagnostic.is_blocked:
+                        diagnostics.blocked_responses += 1
+                        diagnostics.stop_reason = "blocked_response"
+                        break
+                    if structured_fetch.diagnostic.error:
+                        diagnostics.stop_reason = "http_error_or_empty_response"
+                        break
+                    page_records = parse_structured_records(
+                        structured_fetch.data,
+                        page_url=page_url,
+                        endpoint_status=structured_fetch.diagnostic.status_code,
+                        response_headers=structured_fetch.diagnostic.response_headers,
+                    )
+
             diagnostics.page_record_counts[page_url] = len(page_records)
             diagnostics.total_records += len(page_records)
 
             if not page_records:
                 diagnostics.stop_reason = "empty_page"
                 break
+
+            signature = _signature_digest(page_signature(fetch.html))
+            repeated_signature = signature in seen_signatures
+            seen_signatures.add(signature)
 
             new_this_page = 0
             for record in page_records:
@@ -96,7 +127,11 @@ def discover_source_documents(
 
             diagnostics.new_records += new_this_page
             if new_this_page == 0:
-                diagnostics.stop_reason = "no_new_records"
+                diagnostics.stop_reason = (
+                    "repeated_page_signature"
+                    if repeated_signature
+                    else "no_new_records"
+                )
                 break
 
             if page_index < max_pages - 1 and request_delay_seconds > 0:

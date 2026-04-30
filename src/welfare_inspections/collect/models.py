@@ -18,9 +18,7 @@ def source_document_id_from(
     item_url: str,
     pdf_url: str,
 ) -> str:
-    # The item URL can fall back to a shared page URL, so use the PDF URL when
-    # a stable Gov.il item slug is unavailable.
-    source_key = govil_item_slug or pdf_url
+    source_key = f"{govil_item_slug or ''}|{pdf_url}"
     digest = sha256(source_key.encode("utf-8")).hexdigest()[:16]
     return f"source-doc-{digest}"
 
@@ -59,6 +57,17 @@ class HttpDiagnostic(BaseModel):
     error: str | None = None
     is_blocked: bool = False
     fetched_at: datetime = Field(default_factory=utc_now)
+
+
+class DynamicCollectorConfig(BaseModel):
+    """Structured endpoint configuration embedded in a Gov.il collector page."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    dynamic_template_id: str
+    endpoint_url: str
+    x_client_id: str
+    items_per_page: int = 10
 
 
 class DiscoveryRunDiagnostics(BaseModel):

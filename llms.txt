@@ -16,8 +16,8 @@ src/
       govil_client.py       conservative manual Gov.il HTTP client
       manifest.py           source JSONL and diagnostics writers
       models.py             Pydantic source discovery contracts
-      portal_discovery.py   skip-based discovery orchestration
-      portal_parser.py      Gov.il-like HTML source record parser
+      portal_discovery.py   skip-based HTML/structured-endpoint orchestration
+      portal_parser.py      Gov.il-like HTML and DynamicCollector parser
       settings.py           environment-configurable discovery defaults
 
 schemas/

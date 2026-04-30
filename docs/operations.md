@@ -1,7 +1,8 @@
 # Operations
 
 PR 2 adds a manual source discovery prototype. It can probe the public Gov.il
-collector locally and write ignored manifest and diagnostics files. CI remains
+collector locally, read the public DynamicCollector endpoint when advertised by
+the server HTML, and write ignored manifest and diagnostics files. CI remains
 offline and uses mocked responses only.
 
 ## Future CLI
@@ -35,7 +36,8 @@ welfare-inspections discover \
 ```
 
 The command starts at the canonical `skip=0` URL, iterates conservatively, and
-stops on empty, repeated, blocked, or exhausted pages. It does not download PDFs.
+stops on empty, repeated, blocked, or exhausted pages. It records HTTP and parser
+diagnostics, including structured endpoint requests. It does not download PDFs.
 
 ## Project Management
 

@@ -11,12 +11,17 @@ from welfare_inspections import cli
 from welfare_inspections.collect import govil_client, portal_discovery
 from welfare_inspections.collect.govil_client import (
     GovilClient,
+    JsonFetch,
     PageFetch,
     is_blocked_response,
 )
 from welfare_inspections.collect.models import HttpDiagnostic
 from welfare_inspections.collect.portal_discovery import discover_source_documents
-from welfare_inspections.collect.portal_parser import parse_source_records
+from welfare_inspections.collect.portal_parser import (
+    parse_dynamic_collector_config,
+    parse_source_records,
+    parse_structured_records,
+)
 from welfare_inspections.collect.settings import DiscoverySettings
 
 PAGE_URL = (
@@ -119,6 +124,272 @@ def test_parse_multiple_fallback_page_records_keep_unique_pdf_ids() -> None:
     assert records[0].govil_item_url == page_url
     assert records[1].govil_item_url == page_url
     assert records[0].source_document_id != records[1].source_document_id
+
+
+def test_parse_shared_container_records_keep_unique_pdf_ids() -> None:
+    html = """
+    <section>
+      <a href="/he/departments/publications/reports/shared">פרסום</a>
+      <a href="/BlobFolder/reports/shared/he/one.pdf">דוח ראשון</a>
+      <a href="/BlobFolder/reports/shared/he/two.pdf">דוח שני</a>
+    </section>
+    """
+
+    records = parse_source_records(
+        html,
+        page_url=PAGE_URL,
+        http_status=200,
+        response_headers={},
+    )
+
+    assert len(records) == 2
+    assert records[0].govil_item_slug == "shared"
+    assert records[1].govil_item_slug == "shared"
+    assert records[0].source_document_id != records[1].source_document_id
+
+
+def test_discovery_uses_structured_dynamic_collector_endpoint(
+    tmp_path: Path,
+) -> None:
+    html = """
+    <div ng-init="dynamicCtrl.Events.initCtrl({},0,
+      'template-id','',10,'',[],'MultiAutoComplete','client-id')">
+      <a href="{{ dynamicCtrl.Helpers.getFileSource(
+        'https://www.gov.il/BlobFolder/dynamiccollectorresultitem/',
+        item.UrlName,
+        'he',
+        file.FileName) }}"></a>
+    </div>
+    """
+    endpoint_url = "https://www.gov.il/he/api/DynamicCollector"
+    client = FakeClient(
+        [
+            PageFetch(
+                url=PAGE_URL,
+                html=html,
+                diagnostic=HttpDiagnostic(url=PAGE_URL, status_code=200),
+            )
+        ],
+        json_pages=[
+            JsonFetch(
+                url=endpoint_url,
+                data={
+                    "Results": [
+                        {
+                            "UrlName": "structured-one",
+                            "Data": {
+                                "report": [
+                                    {
+                                        "FileName": "one.pdf",
+                                        "DisplayName": "דוח מובנה",
+                                    }
+                                ]
+                            },
+                        }
+                    ],
+                    "TotalResults": 1,
+                },
+                diagnostic=HttpDiagnostic(url=endpoint_url, status_code=200),
+            )
+        ],
+    )
+
+    records, diagnostics = discover_source_documents(
+        output_path=tmp_path / "source_manifest.jsonl",
+        diagnostics_path=tmp_path / "diagnostics.json",
+        max_pages=1,
+        request_delay_seconds=0,
+        client=client,
+    )
+
+    assert len(records) == 1
+    assert records[0].govil_item_slug == "structured-one"
+    assert records[0].title == "דוח מובנה"
+    assert records[0].pdf_url.endswith(
+        "/BlobFolder/dynamiccollectorresultitem/structured-one/he/one.pdf"
+    )
+    assert client.json_requests == [
+        (
+            endpoint_url,
+            {
+                "DynamicTemplateID": "template-id",
+                "QueryFilters": {"skip": {"Query": 0}},
+                "From": 0,
+                "ItemUrlName": None,
+            },
+            "client-id",
+        )
+    ]
+    assert endpoint_url in diagnostics.attempted_urls
+
+
+def test_structured_dynamic_collector_errors_stop_discovery(tmp_path: Path) -> None:
+    html = """
+    <div ng-init="dynamicCtrl.Events.initCtrl({},0,
+      'template-id','',10,'',[],'MultiAutoComplete','client-id')"></div>
+    """
+    endpoint_url = "https://www.gov.il/he/api/DynamicCollector"
+    client = FakeClient(
+        [
+            PageFetch(
+                url=PAGE_URL,
+                html=html,
+                diagnostic=HttpDiagnostic(url=PAGE_URL, status_code=200),
+            )
+        ],
+        json_pages=[
+            JsonFetch(
+                url=endpoint_url,
+                data={},
+                diagnostic=HttpDiagnostic(
+                    url=endpoint_url,
+                    error="ConnectError",
+                ),
+            )
+        ],
+    )
+
+    records, diagnostics = discover_source_documents(
+        output_path=tmp_path / "source_manifest.jsonl",
+        diagnostics_path=tmp_path / "diagnostics.json",
+        max_pages=1,
+        request_delay_seconds=0,
+        client=client,
+    )
+
+    assert records == []
+    assert diagnostics.stop_reason == "http_error_or_empty_response"
+
+
+def test_structured_dynamic_collector_block_stops_discovery(tmp_path: Path) -> None:
+    html = """
+    <div ng-init="dynamicCtrl.Events.initCtrl({},0,
+      'template-id','',10,'',[],'MultiAutoComplete','client-id')"></div>
+    """
+    endpoint_url = "https://www.gov.il/he/api/DynamicCollector"
+    client = FakeClient(
+        [
+            PageFetch(
+                url=PAGE_URL,
+                html=html,
+                diagnostic=HttpDiagnostic(url=PAGE_URL, status_code=200),
+            )
+        ],
+        json_pages=[
+            JsonFetch(
+                url=endpoint_url,
+                data={},
+                diagnostic=HttpDiagnostic(
+                    url=endpoint_url,
+                    status_code=403,
+                    is_blocked=True,
+                ),
+            )
+        ],
+    )
+
+    records, diagnostics = discover_source_documents(
+        output_path=tmp_path / "source_manifest.jsonl",
+        diagnostics_path=tmp_path / "diagnostics.json",
+        max_pages=1,
+        request_delay_seconds=0,
+        client=client,
+    )
+
+    assert records == []
+    assert diagnostics.stop_reason == "blocked_response"
+    assert diagnostics.blocked_responses == 1
+
+
+def test_dynamic_collector_config_rejects_malformed_init_values() -> None:
+    assert parse_dynamic_collector_config("<div></div>", page_url=PAGE_URL) is None
+    assert (
+        parse_dynamic_collector_config(
+            '<div ng-init="otherCtrl.Events.initCtrl()"></div>',
+            page_url=PAGE_URL,
+        )
+        is None
+    )
+    assert (
+        parse_dynamic_collector_config(
+            '<div ng-init="dynamicCtrl.Events.initCtrl({},0)"></div>',
+            page_url=PAGE_URL,
+        )
+        is None
+    )
+    assert (
+        parse_dynamic_collector_config(
+            "<div ng-init=\"dynamicCtrl.Events.initCtrl("
+            "{},0,'','',10,'',[],'MultiAutoComplete','')\"></div>",
+            page_url=PAGE_URL,
+        )
+        is None
+    )
+
+
+def test_dynamic_collector_config_handles_custom_endpoint_and_bad_page_size() -> None:
+    config = parse_dynamic_collector_config(
+        "<div ng-init=\"dynamicCtrl.Events.initCtrl("
+        "{filters:['a,b']},0,'template-id','/custom/api','bad',"
+        "'',[],'MultiAutoComplete','client-id')\"></div>",
+        page_url=PAGE_URL,
+    )
+
+    assert config is not None
+    assert config.endpoint_url == "/custom/api"
+    assert config.items_per_page == 10
+
+
+def test_dynamic_collector_config_handles_escaped_quoted_args() -> None:
+    config = parse_dynamic_collector_config(
+        "<div ng-init=\"dynamicCtrl.Events.initCtrl("
+        "{label:'escaped\\\\\\' quote'},0,'template-id','',10,"
+        "'',[],'MultiAutoComplete','client-id')\"></div>",
+        page_url=PAGE_URL,
+    )
+
+    assert config is not None
+    assert config.dynamic_template_id == "template-id"
+
+
+def test_dynamic_collector_config_accepts_unquoted_string_args() -> None:
+    config = parse_dynamic_collector_config(
+        "<div ng-init=\"dynamicCtrl.Events.initCtrl("
+        "{},0,templateId,'',10,'',[],'MultiAutoComplete',clientId)\"></div>",
+        page_url=PAGE_URL,
+    )
+
+    assert config is not None
+    assert config.dynamic_template_id == "templateId"
+    assert config.x_client_id == "clientId"
+
+
+def test_structured_records_skip_malformed_items_and_dedupe() -> None:
+    records = parse_structured_records(
+        {
+            "Results": [
+                "not an object",
+                {"UrlName": "missing-data"},
+                {"UrlName": "bad-file", "Data": {"report": ["not an object"]}},
+                {"UrlName": "missing-name", "Data": {"report": [{}]}},
+                {
+                    "UrlName": "ok",
+                    "Data": {
+                        "report": [
+                            {"FileName": "report.pdf", "DisplayName": "Report"},
+                            {"FileName": "report.pdf", "DisplayName": "Report"},
+                        ]
+                    },
+                },
+            ]
+        },
+        page_url=PAGE_URL,
+        endpoint_status=200,
+        response_headers={},
+    )
+
+    assert len(records) == 1
+    assert records[0].govil_item_slug == "ok"
 
 
 def test_parse_blobfolder_link_without_pdf_extension_and_missing_metadata() -> None:
@@ -325,6 +596,47 @@ def test_discovery_stops_on_repeated_page_signature(tmp_path: Path) -> None:
     assert len(client.urls) == 2
 
 
+def test_discovery_does_not_stop_on_same_text_with_new_hrefs(tmp_path: Path) -> None:
+    first_html = """
+    <article>
+      <a href="/he/departments/publications/reports/same-title">פרסום</a>
+      <a href="/BlobFolder/reports/same-title/he/one.pdf">דוח זהה</a>
+    </article>
+    """
+    second_html = """
+    <article>
+      <a href="/he/departments/publications/reports/same-title">פרסום</a>
+      <a href="/BlobFolder/reports/same-title/he/two.pdf">דוח זהה</a>
+    </article>
+    """
+    second_url = PAGE_URL.replace("skip=0", "skip=10")
+    client = FakeClient(
+        [
+            PageFetch(
+                url=PAGE_URL,
+                html=first_html,
+                diagnostic=HttpDiagnostic(url=PAGE_URL, status_code=200),
+            ),
+            PageFetch(
+                url=second_url,
+                html=second_html,
+                diagnostic=HttpDiagnostic(url=second_url, status_code=200),
+            ),
+        ]
+    )
+
+    records, diagnostics = discover_source_documents(
+        output_path=tmp_path / "source_manifest.jsonl",
+        diagnostics_path=tmp_path / "diagnostics.json",
+        max_pages=2,
+        request_delay_seconds=0,
+        client=client,
+    )
+
+    assert len(records) == 2
+    assert diagnostics.stop_reason == "max_pages"
+
+
 def test_discovery_counts_duplicates_and_stops_with_no_new_records(
     tmp_path: Path,
 ) -> None:
@@ -522,6 +834,181 @@ def test_govil_client_fetch_records_request_error(
     assert fake_http_client.requested_urls == [PAGE_URL, PAGE_URL, PAGE_URL]
 
 
+def test_govil_client_fetch_records_unexpected_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_http_client = FakeHttpxClient(error=ValueError("bad response"))
+    monkeypatch.setattr(
+        govil_client.httpx,
+        "Client",
+        lambda **_kwargs: fake_http_client,
+    )
+
+    client = GovilClient()
+    fetch = client.fetch(PAGE_URL)
+
+    assert fetch.html == ""
+    assert fetch.diagnostic.error == "ValueError"
+    assert fake_http_client.requested_urls == [PAGE_URL]
+
+
+def test_govil_client_fetch_records_response_text_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_http_client = FakeHttpxClient(response=BadTextResponse())
+    monkeypatch.setattr(
+        govil_client.httpx,
+        "Client",
+        lambda **_kwargs: fake_http_client,
+    )
+
+    client = GovilClient()
+    fetch = client.fetch(PAGE_URL)
+
+    assert fetch.html == ""
+    assert fetch.diagnostic.error == "ValueError"
+
+
+def test_govil_client_post_json_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    endpoint_url = "https://www.gov.il/he/api/DynamicCollector"
+    fake_http_client = FakeHttpxClient(
+        post_response=httpx.Response(
+            200,
+            json={"Results": []},
+            headers={"content-type": "application/json"},
+            request=httpx.Request("POST", endpoint_url),
+        )
+    )
+    monkeypatch.setattr(
+        govil_client.httpx,
+        "Client",
+        lambda **_kwargs: fake_http_client,
+    )
+
+    client = GovilClient()
+    fetch = client.post_json(endpoint_url, {"From": 0}, "client-id")
+
+    assert fetch.data == {"Results": []}
+    assert fetch.diagnostic.status_code == 200
+    assert fetch.diagnostic.response_headers == {"content-type": "application/json"}
+    assert fake_http_client.posted == [(endpoint_url, {"From": 0}, "client-id")]
+
+
+def test_govil_client_post_json_records_request_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    endpoint_url = "https://www.gov.il/he/api/DynamicCollector"
+    fake_http_client = FakeHttpxClient(
+        post_error=httpx.ConnectError(
+            "network unavailable",
+            request=httpx.Request("POST", endpoint_url),
+        )
+    )
+    monkeypatch.setattr(
+        govil_client.httpx,
+        "Client",
+        lambda **_kwargs: fake_http_client,
+    )
+
+    client = GovilClient()
+    fetch = client.post_json(endpoint_url, {"From": 0}, "client-id")
+
+    assert fetch.data == {}
+    assert fetch.diagnostic.error == "ConnectError"
+    assert len(fake_http_client.posted) == 3
+
+
+def test_govil_client_post_json_records_unexpected_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    endpoint_url = "https://www.gov.il/he/api/DynamicCollector"
+    fake_http_client = FakeHttpxClient(post_error=ValueError("bad response"))
+    monkeypatch.setattr(
+        govil_client.httpx,
+        "Client",
+        lambda **_kwargs: fake_http_client,
+    )
+
+    client = GovilClient()
+    fetch = client.post_json(endpoint_url, {"From": 0}, "client-id")
+
+    assert fetch.data == {}
+    assert fetch.diagnostic.error == "ValueError"
+    assert len(fake_http_client.posted) == 1
+
+
+def test_govil_client_post_json_records_response_decode_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    endpoint_url = "https://www.gov.il/he/api/DynamicCollector"
+    fake_http_client = FakeHttpxClient(post_response=BadJsonResponse(endpoint_url))
+    monkeypatch.setattr(
+        govil_client.httpx,
+        "Client",
+        lambda **_kwargs: fake_http_client,
+    )
+
+    client = GovilClient()
+    fetch = client.post_json(endpoint_url, {"From": 0}, "client-id")
+
+    assert fetch.data == {}
+    assert fetch.diagnostic.error == "ValueError"
+
+
+def test_govil_client_post_json_non_200_keeps_empty_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    endpoint_url = "https://www.gov.il/he/api/DynamicCollector"
+    fake_http_client = FakeHttpxClient(
+        post_response=httpx.Response(
+            500,
+            text="server error",
+            request=httpx.Request("POST", endpoint_url),
+        )
+    )
+    monkeypatch.setattr(
+        govil_client.httpx,
+        "Client",
+        lambda **_kwargs: fake_http_client,
+    )
+
+    client = GovilClient()
+    fetch = client.post_json(endpoint_url, {"From": 0}, "client-id")
+
+    assert fetch.data == {}
+    assert fetch.diagnostic.status_code == 500
+
+
+def test_govil_client_post_json_non_object_payload_is_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    endpoint_url = "https://www.gov.il/he/api/DynamicCollector"
+    fake_http_client = FakeHttpxClient(
+        post_response=httpx.Response(
+            200,
+            json=[],
+            request=httpx.Request("POST", endpoint_url),
+        )
+    )
+    monkeypatch.setattr(
+        govil_client.httpx,
+        "Client",
+        lambda **_kwargs: fake_http_client,
+    )
+
+    client = GovilClient()
+    fetch = client.post_json(endpoint_url, {"From": 0}, "client-id")
+
+    assert fetch.data == {}
+
+
+def test_retry_error_name_handles_unexpected_retry_shapes() -> None:
+    assert govil_client._retry_error_name(BrokenRetryError()) == "BrokenRetryError"
+    assert govil_client._retry_error_name(EmptyRetryError()) == "EmptyRetryError"
+
+
 def test_discovery_settings_read_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -608,6 +1095,34 @@ def test_cli_discover_invokes_discovery(
     )
 
 
+def test_cli_discover_reads_settings_at_command_time(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "manifest.jsonl"
+    diagnostics = tmp_path / "diagnostics.json"
+    calls: list[dict[str, object]] = []
+
+    def fake_discover_source_documents(**kwargs: object) -> tuple[list[object], object]:
+        calls.append(kwargs)
+        return [], SimpleDiagnostics(stop_reason="empty_page")
+
+    monkeypatch.setenv("WELFARE_INSPECTIONS_DISCOVERY_MAX_PAGES", "9")
+    monkeypatch.setenv("WELFARE_INSPECTIONS_DISCOVERY_PAGE_SIZE", "30")
+    monkeypatch.setenv("WELFARE_INSPECTIONS_DISCOVERY_REQUEST_DELAY_SECONDS", "0.0")
+    monkeypatch.setattr(
+        cli,
+        "discover_source_documents",
+        fake_discover_source_documents,
+    )
+
+    cli.discover(output=output, diagnostics=diagnostics)
+
+    assert calls[0]["max_pages"] == 9
+    assert calls[0]["page_size"] == 30
+    assert calls[0]["request_delay_seconds"] == 0.0
+
+
 def test_cli_main_returns_one_for_non_integer_exit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -631,14 +1146,30 @@ def test_cli_main_returns_zero_when_app_does_not_exit(
 
 
 class FakeClient:
-    def __init__(self, pages: list[PageFetch]) -> None:
+    def __init__(
+        self,
+        pages: list[PageFetch],
+        *,
+        json_pages: list[JsonFetch] | None = None,
+    ) -> None:
         self._pages = pages
+        self._json_pages = json_pages or []
         self.urls: list[str] = []
+        self.json_requests: list[tuple[str, dict[str, object], str]] = []
         self.closed = False
 
     def fetch(self, url: str) -> PageFetch:
         self.urls.append(url)
         return self._pages.pop(0)
+
+    def post_json(
+        self,
+        url: str,
+        payload: dict[str, object],
+        x_client_id: str,
+    ) -> JsonFetch:
+        self.json_requests.append((url, payload, x_client_id))
+        return self._json_pages.pop(0)
 
     def close(self) -> None:
         self.closed = True
@@ -649,12 +1180,17 @@ class FakeHttpxClient:
         self,
         *,
         response: httpx.Response | None = None,
-        error: httpx.RequestError | None = None,
+        error: Exception | None = None,
+        post_response: httpx.Response | None = None,
+        post_error: Exception | None = None,
     ) -> None:
         self._response = response
         self._error = error
+        self._post_response = post_response
+        self._post_error = post_error
         self.closed = False
         self.requested_urls: list[str] = []
+        self.posted: list[tuple[str, dict[str, object], str | None]] = []
 
     def get(self, url: str) -> httpx.Response:
         self.requested_urls.append(url)
@@ -664,6 +1200,20 @@ class FakeHttpxClient:
             raise AssertionError("FakeHttpxClient requires a response or error")
         return self._response
 
+    def post(
+        self,
+        url: str,
+        *,
+        json: dict[str, object],
+        headers: dict[str, str],
+    ) -> httpx.Response:
+        self.posted.append((url, json, headers.get("x-client-id")))
+        if self._post_error is not None:
+            raise self._post_error
+        if self._post_response is None:
+            raise AssertionError("FakeHttpxClient requires a post response or error")
+        return self._post_response
+
     def close(self) -> None:
         self.closed = True
 
@@ -671,3 +1221,46 @@ class FakeHttpxClient:
 class SimpleDiagnostics:
     def __init__(self, *, stop_reason: str) -> None:
         self.stop_reason = stop_reason
+
+
+class BadTextResponse:
+    url = PAGE_URL
+    status_code = 200
+    headers = httpx.Headers()
+
+    @property
+    def text(self) -> str:
+        raise ValueError("bad response text")
+
+
+class BadJsonResponse:
+    status_code = 200
+    headers = httpx.Headers()
+
+    def __init__(self, url: str) -> None:
+        self.url = url
+
+    @property
+    def text(self) -> str:
+        return "{}"
+
+    def json(self) -> dict[str, object]:
+        raise ValueError("bad json")
+
+
+class BrokenRetryAttempt:
+    def exception(self) -> Exception | None:
+        raise ValueError("bad retry state")
+
+
+class BrokenRetryError(Exception):
+    last_attempt = BrokenRetryAttempt()
+
+
+class EmptyRetryAttempt:
+    def exception(self) -> Exception | None:
+        return None
+
+
+class EmptyRetryError(Exception):
+    last_attempt = EmptyRetryAttempt()

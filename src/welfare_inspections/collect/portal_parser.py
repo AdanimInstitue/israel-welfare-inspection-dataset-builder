@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, datetime
+from html import unescape
 from pathlib import PurePosixPath
-from urllib.parse import urljoin, urlparse
+from typing import Any
+from urllib.parse import urljoin, urlparse, urlunparse
 
 from bs4 import BeautifulSoup, Tag
 
 from welfare_inspections import __version__
 from welfare_inspections.collect.models import (
+    DynamicCollectorConfig,
     SourceDocumentRecord,
     source_document_id_from,
 )
@@ -65,9 +68,146 @@ def parse_source_records(
     return _dedupe(records)
 
 
+def parse_dynamic_collector_config(
+    html: str,
+    *,
+    page_url: str,
+) -> DynamicCollectorConfig | None:
+    soup = BeautifulSoup(html, "lxml")
+    init_element = soup.find(attrs={"ng-init": re.compile("initCtrl")})
+    if not init_element:
+        return None
+
+    init_value = unescape(str(init_element.get("ng-init", "")))
+    prefix = "dynamicCtrl.Events.initCtrl("
+    if not init_value.startswith(prefix) or not init_value.endswith(")"):
+        return None
+
+    args = _split_top_level_args(init_value.removeprefix(prefix).removesuffix(")"))
+    if len(args) < 9:
+        return None
+
+    dynamic_template_id = _strip_js_string(args[2])
+    results_api_url = _strip_js_string(args[3])
+    items_per_page = _parse_int(args[4], default=10)
+    x_client_id = _strip_js_string(args[8])
+    if not dynamic_template_id or not x_client_id:
+        return None
+
+    return DynamicCollectorConfig(
+        dynamic_template_id=dynamic_template_id,
+        endpoint_url=results_api_url or _default_dynamic_collector_endpoint(page_url),
+        x_client_id=x_client_id,
+        items_per_page=items_per_page,
+    )
+
+
+def parse_structured_records(
+    payload: dict[str, Any],
+    *,
+    page_url: str,
+    endpoint_status: int | None,
+    response_headers: dict[str, str],
+) -> list[SourceDocumentRecord]:
+    records: list[SourceDocumentRecord] = []
+    for item in payload.get("Results", []):
+        if not isinstance(item, dict):
+            continue
+        url_name = str(item.get("UrlName") or "").strip()
+        data = item.get("Data") if isinstance(item.get("Data"), dict) else {}
+        for file_info in data.get("report", []):
+            if not isinstance(file_info, dict):
+                continue
+            file_name = str(file_info.get("FileName") or "").strip()
+            if not url_name or not file_name:
+                continue
+            pdf_url = urljoin(
+                page_url,
+                f"/BlobFolder/dynamiccollectorresultitem/{url_name}/he/{file_name}",
+            )
+            item_url = _item_url_from_url_name(page_url, url_name)
+            title = str(file_info.get("DisplayName") or "").strip() or None
+            source_document_id = source_document_id_from(url_name, item_url, pdf_url)
+            records.append(
+                SourceDocumentRecord(
+                    source_document_id=source_document_id,
+                    govil_item_slug=url_name,
+                    govil_item_url=item_url,
+                    pdf_url=pdf_url,
+                    title=title,
+                    language_path=_language_path(page_url),
+                    source_published_at=None,
+                    source_updated_at=None,
+                    http_status=endpoint_status,
+                    response_headers=response_headers,
+                    collector_version=__version__,
+                )
+            )
+    return _dedupe(records)
+
+
 def page_signature(html: str) -> str:
-    normalized = re.sub(r"\s+", " ", BeautifulSoup(html, "lxml").get_text(" ")).strip()
-    return normalized
+    soup = BeautifulSoup(html, "lxml")
+    text = re.sub(r"\s+", " ", soup.get_text(" ")).strip()
+    hrefs = " ".join(
+        str(link.get("href", "")).strip()
+        for link in soup.find_all("a", href=True)
+    )
+    return f"{text} {hrefs}".strip()
+
+
+def _split_top_level_args(value: str) -> list[str]:
+    args: list[str] = []
+    start = 0
+    depth = 0
+    quote = ""
+    escaped = False
+    for index, char in enumerate(value):
+        if quote:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = ""
+            continue
+        if char in {"'", '"'}:
+            quote = char
+        elif char in {"{", "["}:
+            depth += 1
+        elif char in {"}", "]"}:
+            depth -= 1
+        elif char == "," and depth == 0:
+            args.append(value[start:index].strip())
+            start = index + 1
+    args.append(value[start:].strip())
+    return args
+
+
+def _strip_js_string(value: str) -> str:
+    stripped = value.strip()
+    if len(stripped) >= 2 and stripped[0] == stripped[-1] and stripped[0] in {"'", '"'}:
+        return stripped[1:-1]
+    return stripped
+
+
+def _parse_int(value: str, *, default: int) -> int:
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
+def _default_dynamic_collector_endpoint(page_url: str) -> str:
+    parsed = urlparse(page_url)
+    prefix = parsed.path.split("/departments", maxsplit=1)[0].rstrip("/")
+    path = f"{prefix}/api/DynamicCollector" if prefix else "/api/DynamicCollector"
+    return urlunparse(parsed._replace(path=path, query="", fragment=""))
+
+
+def _item_url_from_url_name(page_url: str, url_name: str) -> str:
+    parsed = urlparse(page_url)
+    return urlunparse(parsed._replace(query=f"DCRI_UrlName={url_name}", fragment=""))
 
 
 def _is_pdf_link(href: str) -> bool:
