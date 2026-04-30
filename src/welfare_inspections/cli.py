@@ -10,10 +10,15 @@ from rich.console import Console
 
 from welfare_inspections import __version__
 from welfare_inspections.collect.pdf_download import download_source_pdfs
+from welfare_inspections.collect.pdf_text import extract_embedded_text_from_manifest
 from welfare_inspections.collect.portal_discovery import (
     discover_source_documents,
 )
-from welfare_inspections.collect.settings import DiscoverySettings, DownloadSettings
+from welfare_inspections.collect.settings import (
+    DiscoverySettings,
+    DownloadSettings,
+    ParseSettings,
+)
 
 app = typer.Typer(
     name="welfare-inspections",
@@ -159,6 +164,53 @@ def download(
         f"downloaded={run_diagnostics.downloaded_records}; "
         f"skipped_existing={run_diagnostics.skipped_existing_records}; "
         f"failed={run_diagnostics.failed_records}"
+    )
+
+
+@app.command()
+def parse(
+    source_manifest: Annotated[
+        Path,
+        typer.Option(
+            "--source-manifest",
+            help="Path to a PR 3 download manifest JSONL.",
+        ),
+    ] = Path("outputs/download_manifest.jsonl"),
+    text_output_dir: Annotated[
+        Path,
+        typer.Option(
+            "--text-output-dir",
+            help="Directory for ignored extracted text files.",
+        ),
+    ] = Path("outputs/extracted_text"),
+    diagnostics: Annotated[
+        Path,
+        typer.Option(
+            "--diagnostics",
+            help="Path for embedded text extraction diagnostics JSON.",
+        ),
+    ] = Path("outputs/text_extraction_diagnostics.json"),
+    overwrite: Annotated[
+        bool | None,
+        typer.Option(
+            "--overwrite/--no-overwrite",
+            help="Overwrite existing extracted text files.",
+        ),
+    ] = None,
+) -> None:
+    """Manually extract embedded text from downloaded PDFs."""
+    settings = ParseSettings()
+    run_diagnostics = extract_embedded_text_from_manifest(
+        source_manifest_path=source_manifest,
+        text_output_dir=text_output_dir,
+        diagnostics_path=diagnostics,
+        overwrite=overwrite if overwrite is not None else settings.overwrite,
+    )
+    console.print(
+        f"Processed {run_diagnostics.total_records} source records; "
+        f"extracted={run_diagnostics.extracted_records}; "
+        f"failed={run_diagnostics.failed_records}; "
+        f"warnings={run_diagnostics.warning_records}"
     )
 
 

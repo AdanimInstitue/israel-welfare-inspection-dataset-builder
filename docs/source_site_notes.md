@@ -11,8 +11,9 @@ welfare facilities, including hostels, residential centers, and care facilities.
 
 PR 2 adds an inert-by-default discovery prototype. PR 3 adds an
 inert-by-default downloader that consumes the discovery manifest and downloads
-only the public `pdf_url` values when manually invoked. Both stages are tested
-only with mocked HTML/HTTP responses.
+only the public `pdf_url` values when manually invoked. PR 4 adds an
+inert-by-default embedded-text extractor that consumes the download manifest and
+local PDF paths. These stages are tested only with mocked or synthetic inputs.
 
 ## Discovery Strategy
 
@@ -105,6 +106,20 @@ Generated outputs and downloaded PDFs are ignored by git and should be inspected
 locally before being used by later PRs. The downloader records per-record HTTP
 diagnostics, blocked responses, checksum mismatches, and non-fatal download
 failures without parsing or OCRing PDFs.
+
+Manual PR 4 embedded-text extraction command:
+
+```bash
+welfare-inspections parse \
+  --source-manifest outputs/download_manifest.jsonl \
+  --text-output-dir outputs/extracted_text \
+  --diagnostics outputs/text_extraction_diagnostics.json
+```
+
+The parser reads only the PR 3 manifest and local PDF paths, extracts embedded
+text, writes ignored local text outputs, and preserves source/download
+provenance in diagnostics. It does not collect from Gov.il, download PDFs, OCR,
+parse report-level metadata, export datasets, or publish data.
 
 ## Required Source Record
 

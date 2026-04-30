@@ -1,9 +1,10 @@
 # Operations
 
 PR 2 adds a manual source discovery prototype. PR 3 adds a separate manual PDF
-download/checksum layer that reads the PR 2 source manifest. Both commands are
-inert by default and write ignored local outputs. CI remains offline and uses
-mocked responses only.
+download/checksum layer that reads the PR 2 source manifest. PR 4 adds a manual
+embedded-text extraction layer that reads the PR 3 download manifest. These
+commands are inert by default and write ignored local outputs. CI remains
+offline and uses mocked or synthetic inputs only.
 
 ## Future CLI
 
@@ -13,10 +14,10 @@ Current manual commands:
 
 - `welfare-inspections discover`
 - `welfare-inspections download`
+- `welfare-inspections parse`
 
 Planned future commands:
 
-- `welfare-inspections parse`
 - `welfare-inspections build`
 - `welfare-inspections publish`
 - `welfare-inspections run-all`
@@ -25,7 +26,7 @@ Expected behavior:
 
 - `discover` writes a source manifest JSONL.
 - `download` reads a manifest and downloads/checksums PDFs.
-- `parse` extracts text and top-level metadata from downloaded PDFs.
+- `parse` extracts embedded text and PDF diagnostics from downloaded PDFs.
 - `build` emits CSV/JSONL outputs into a local output directory.
 - `publish` opens a PR into the data repository, not a direct push to main.
 - `run-all` chains the local non-publishing steps.
@@ -59,15 +60,32 @@ network access unless `--force` is used. Existing files with a recorded checksum
 mismatch are diagnosed and left untouched by default. Downloaded PDFs,
 manifests, and diagnostics are local ignored outputs.
 
+Current PR 4 parse command:
+
+```bash
+welfare-inspections parse \
+  --source-manifest outputs/download_manifest.jsonl \
+  --text-output-dir outputs/extracted_text \
+  --diagnostics outputs/text_extraction_diagnostics.json
+```
+
+The parse command reads only the PR 3 download manifest and recorded local PDF
+paths. It extracts embedded PDF text with PyMuPDF, records pypdf page-count and
+metadata diagnostics, normalizes extracted text deterministically, and writes
+per-document text files into ignored local outputs. It does not OCR, parse
+report-level metadata, export datasets, publish data, or contact Gov.il.
+
 ## Project Management
 
 Use Python 3.11+ or 3.12. Prefer uv-based project management.
 
-Current PR 2/PR 3 runtime dependencies:
+Current PR 2/PR 3/PR 4 runtime dependencies:
 
 - `httpx`
 - `beautifulsoup4`
 - `lxml`
+- `pymupdf`
+- `pypdf`
 - `pydantic`
 - `pydantic-settings`
 - `typer`
@@ -78,9 +96,7 @@ Current PR 2/PR 3 runtime dependencies:
 Recommended future runtime dependencies:
 
 - `playwright`
-- `pymupdf`
 - `pdfplumber`
-- `pypdf`
 - `ocrmypdf`
 - `pytesseract`
 - `pillow`

@@ -31,3 +31,14 @@ class DownloadSettings(BaseSettings):
     )
 
     request_delay_seconds: float = Field(default=1.0, ge=0)
+
+
+class ParseSettings(BaseSettings):
+    """Environment-configurable defaults for manual embedded text parsing."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="WELFARE_INSPECTIONS_PARSE_",
+        extra="ignore",
+    )
+
+    overwrite: bool = False

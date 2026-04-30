@@ -45,10 +45,11 @@ Acceptance criteria:
 
 Tasks:
 
-- Add PyMuPDF text extraction.
-- Add pypdf page count/metadata checks.
-- Add Hebrew normalization helpers.
-- Add small synthetic fixture tests.
+- Add PyMuPDF text extraction. Done via manual `welfare-inspections parse`.
+- Add pypdf page count/metadata checks. Done in extraction diagnostics.
+- Add Hebrew normalization helpers. Done for whitespace, zero-width/control
+  removal, punctuation variants, and Hebrew geresh/gershayim handling.
+- Add small synthetic fixture tests. Done without committed real PDFs.
 
 Acceptance criteria:
 
@@ -56,6 +57,9 @@ Acceptance criteria:
 - Normalization handles spaces, zero-width characters, punctuation variants, and
   Hebrew geresh/gershayim variants.
 - OCR remains documented but unimplemented unless separately scoped.
+- Per-file extraction failures produce diagnostics where possible.
+- Extracted text outputs, diagnostics, and downloaded PDFs remain ignored local
+  artifacts.
 
 ## PR 5: Top-Level Metadata Parser
 

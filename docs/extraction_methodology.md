@@ -6,9 +6,11 @@ document, page, raw excerpt, extraction method, and warning status.
 
 ## PDF Extraction Layers
 
-1. Use PyMuPDF as the default embedded-text extraction engine.
+1. Use PyMuPDF as the default embedded-text extraction engine. PR 4 implements
+   this through the manual `welfare-inspections parse` command.
 2. Use pdfplumber for layout debugging and table extraction where useful.
-3. Use pypdf for metadata, page count, and structural checks.
+3. Use pypdf for metadata, page count, and structural checks. PR 4 records
+   these values in extraction diagnostics.
 4. Use OCR only when embedded text is missing or poor.
 
 ## OCR Fallback
@@ -17,6 +19,9 @@ OCR should use OCRmyPDF/Tesseract when needed. Hebrew language data (`heb`) is
 required for Hebrew reports, and Arabic (`ara`) may be needed if Arabic source
 paths or reports are included. OCR output should be marked as OCR-derived and
 should carry lower default confidence than clean embedded-text extraction.
+
+OCR is not implemented in PR 4. Missing, unreadable, or image-only PDFs are
+recorded as extraction diagnostics/warnings for later handling.
 
 ## Parser Contracts
 
@@ -46,6 +51,11 @@ The normalization layer should handle:
 
 Stored canonical values must not use visual bidi transformations.
 `python-bidi` may be used only for debugging/display if needed.
+
+PR 4 normalizes embedded text only after extraction. It removes zero-width and
+directional control characters, normalizes common punctuation variants,
+canonicalizes Hebrew geresh/gershayim in Hebrew abbreviations, and cleans
+whitespace while preserving logical-order text as emitted by the extractor.
 
 ## Confidence and Warnings
 
