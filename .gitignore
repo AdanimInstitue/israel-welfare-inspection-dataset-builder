@@ -206,6 +206,14 @@ tempCodeRunnerFile.py
 # Ruff stuff:
 .ruff_cache/
 
+# Project-local generated artifacts. The canonical generated dataset belongs in
+# the paired data repository, not this builder repository.
+data/
+outputs/
+artifacts/
+data_samples/raw_pdfs/
+data_samples/expected_outputs/
+
 # PyPI configuration file
 .pypirc
 

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AdanimInstitue/israel-welfare-inspection-dataset-builder/schemas/facility.schema.json",
+  "title": "Facility",
+  "description": "Placeholder schema for future facility records.",
+  "type": "object",
+  "required": ["facility_id"],
+  "properties": {
+    "facility_id": { "type": "string" },
+    "facility_name": { "type": ["string", "null"] },
+    "facility_type_normalized": { "type": ["string", "null"] }
+  },
+  "additionalProperties": true
+}
