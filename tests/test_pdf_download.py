@@ -4,8 +4,10 @@ import json
 from pathlib import Path
 
 import httpx
+from tenacity import RetryError
 
 from welfare_inspections import cli
+from welfare_inspections.collect import govil_client, pdf_download
 from welfare_inspections.collect.govil_client import BinaryFetch
 from welfare_inspections.collect.manifest import (
     read_source_manifest,
@@ -25,6 +27,19 @@ def test_manifest_read_write_roundtrip(tmp_path: Path) -> None:
     write_source_manifest(manifest_path, [source_record])
 
     records = read_source_manifest(manifest_path)
+    assert records == [source_record]
+
+
+def test_manifest_reader_skips_blank_lines(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "source.jsonl"
+    source_record = _record("blank-lines")
+    manifest_path.write_text(
+        "\n" + source_record.model_dump_json() + "\n\n",
+        encoding="utf-8",
+    )
+
+    records = read_source_manifest(manifest_path)
+
     assert records == [source_record]
 
 
@@ -79,6 +94,77 @@ def test_download_success_updates_manifest_and_diagnostics(tmp_path: Path) -> No
     assert diagnostics.downloaded_records == 1
     assert diagnostics_payload["record_diagnostics"][0]["status"] == "downloaded"
     assert client.urls == ["https://www.gov.il/file.pdf"]
+
+
+def test_download_delays_between_network_attempts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    manifest_path = tmp_path / "source.jsonl"
+    write_source_manifest(manifest_path, [_record("first"), _record("second")])
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(pdf_download.time, "sleep", sleep_calls.append)
+
+    download_source_pdfs(
+        source_manifest_path=manifest_path,
+        output_manifest_path=tmp_path / "download.jsonl",
+        diagnostics_path=tmp_path / "diagnostics.json",
+        download_dir=tmp_path / "pdfs",
+        request_delay_seconds=0.25,
+        client=FakeDownloadClient(
+            [
+                BinaryFetch(
+                    url="https://www.gov.il/file.pdf",
+                    content=b"%PDF-1.7\nfirst\n",
+                    diagnostic=HttpDiagnostic(
+                        url="https://www.gov.il/file.pdf",
+                        status_code=200,
+                    ),
+                ),
+                BinaryFetch(
+                    url="https://www.gov.il/file.pdf",
+                    content=b"%PDF-1.7\nsecond\n",
+                    diagnostic=HttpDiagnostic(
+                        url="https://www.gov.il/file.pdf",
+                        status_code=200,
+                    ),
+                ),
+            ]
+        ),
+    )
+
+    assert sleep_calls == [0.25]
+
+
+def test_download_closes_owned_client(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    manifest_path = tmp_path / "source.jsonl"
+    write_source_manifest(manifest_path, [_record("owned-client")])
+    client = FakeDownloadClient(
+        [
+            BinaryFetch(
+                url="https://www.gov.il/file.pdf",
+                content=b"%PDF-1.7\nowned\n",
+                diagnostic=HttpDiagnostic(
+                    url="https://www.gov.il/file.pdf",
+                    status_code=200,
+                ),
+            )
+        ]
+    )
+    monkeypatch.setattr(pdf_download, "GovilClient", lambda: client)
+
+    download_source_pdfs(
+        source_manifest_path=manifest_path,
+        output_manifest_path=tmp_path / "download.jsonl",
+        diagnostics_path=tmp_path / "diagnostics.json",
+        download_dir=tmp_path / "pdfs",
+        request_delay_seconds=0,
+    )
+
+    assert client.closed is True
 
 
 def test_existing_valid_file_is_skipped_without_network(tmp_path: Path) -> None:
@@ -199,6 +285,33 @@ def test_blocked_response_records_blocked_diagnostics(tmp_path: Path) -> None:
     assert diagnostics.record_diagnostics[0].status == "blocked"
 
 
+def test_empty_pdf_response_records_failure(tmp_path: Path) -> None:
+    record = _record("empty")
+    manifest_path = tmp_path / "source.jsonl"
+    write_source_manifest(manifest_path, [record])
+
+    records, diagnostics = download_source_pdfs(
+        source_manifest_path=manifest_path,
+        output_manifest_path=tmp_path / "download.jsonl",
+        diagnostics_path=tmp_path / "diagnostics.json",
+        download_dir=tmp_path / "pdfs",
+        request_delay_seconds=0,
+        client=FakeDownloadClient(
+            [
+                BinaryFetch(
+                    url=record.pdf_url,
+                    content=b"",
+                    diagnostic=HttpDiagnostic(url=record.pdf_url, status_code=200),
+                )
+            ]
+        ),
+    )
+
+    assert records[0] == record
+    assert diagnostics.failed_records == 1
+    assert diagnostics.record_diagnostics[0].error == "empty_response_body"
+
+
 def test_cli_download_invokes_downloader(
     tmp_path: Path,
     monkeypatch,
@@ -250,6 +363,73 @@ def test_httpx_binary_fetch_success(monkeypatch) -> None:
     assert fetch.diagnostic.response_headers == {"content-type": "application/pdf"}
 
 
+def test_httpx_binary_fetch_records_retry_error(monkeypatch) -> None:
+    fake_http_client = FakeHttpxClient(
+        error=httpx.ConnectError(
+            "network unavailable",
+            request=httpx.Request("GET", "https://www.gov.il/file.pdf"),
+        )
+    )
+    monkeypatch.setattr(
+        govil_client.httpx,
+        "Client",
+        lambda **_kwargs: fake_http_client,
+    )
+
+    client = govil_client.GovilClient()
+    fetch = client.fetch_binary("https://www.gov.il/file.pdf")
+
+    assert fetch.content == b""
+    assert fetch.diagnostic.error == "ConnectError"
+    assert fake_http_client.requested_urls == [
+        "https://www.gov.il/file.pdf",
+        "https://www.gov.il/file.pdf",
+        "https://www.gov.il/file.pdf",
+    ]
+
+
+def test_httpx_binary_fetch_records_unexpected_error(monkeypatch) -> None:
+    fake_http_client = FakeHttpxClient(error=ValueError("bad response"))
+    monkeypatch.setattr(
+        govil_client.httpx,
+        "Client",
+        lambda **_kwargs: fake_http_client,
+    )
+
+    client = govil_client.GovilClient()
+    fetch = client.fetch_binary("https://www.gov.il/file.pdf")
+
+    assert fetch.content == b""
+    assert fetch.diagnostic.error == "ValueError"
+    assert fake_http_client.requested_urls == ["https://www.gov.il/file.pdf"]
+
+
+def test_httpx_binary_fetch_records_response_content_error(monkeypatch) -> None:
+    fake_http_client = FakeHttpxClient(response=BadContentResponse())
+    monkeypatch.setattr(
+        govil_client.httpx,
+        "Client",
+        lambda **_kwargs: fake_http_client,
+    )
+
+    client = govil_client.GovilClient()
+    fetch = client.fetch_binary("https://www.gov.il/file.pdf")
+
+    assert fetch.content == b""
+    assert fetch.diagnostic.error == "ValueError"
+
+
+def test_error_binary_fetch_handles_retry_error_name() -> None:
+    fetch = govil_client._error_binary_fetch(
+        "https://www.gov.il/file.pdf",
+        0.1,
+        govil_client._retry_error_name(RetryError(EmptyRetryAttempt())),
+    )
+
+    assert fetch.content == b""
+    assert fetch.diagnostic.error == "RetryError"
+
+
 def _record(
     name: str,
     *,
@@ -284,13 +464,40 @@ class FakeDownloadClient:
 
 
 class FakeHttpxClient:
-    def __init__(self, *, response: httpx.Response) -> None:
+    def __init__(
+        self,
+        *,
+        response: httpx.Response | BadContentResponse | None = None,
+        error: Exception | None = None,
+    ) -> None:
         self._response = response
+        self._error = error
+        self.requested_urls: list[str] = []
 
     def get(self, url: str) -> httpx.Response:
+        self.requested_urls.append(url)
+        if self._error is not None:
+            raise self._error
+        if self._response is None:
+            raise AssertionError("FakeHttpxClient requires a response or error")
         return self._response
 
     def close(self) -> None:
+        return None
+
+
+class BadContentResponse:
+    url = "https://www.gov.il/file.pdf"
+    status_code = 200
+    headers = httpx.Headers()
+
+    @property
+    def content(self) -> bytes:
+        raise ValueError("bad binary response")
+
+
+class EmptyRetryAttempt:
+    def exception(self) -> Exception | None:
         return None
 
 
