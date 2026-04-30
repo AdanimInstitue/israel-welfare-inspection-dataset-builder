@@ -9,10 +9,11 @@ import typer
 from rich.console import Console
 
 from welfare_inspections import __version__
+from welfare_inspections.collect.pdf_download import download_source_pdfs
 from welfare_inspections.collect.portal_discovery import (
     discover_source_documents,
 )
-from welfare_inspections.collect.settings import DiscoverySettings
+from welfare_inspections.collect.settings import DiscoverySettings, DownloadSettings
 
 app = typer.Typer(
     name="welfare-inspections",
@@ -94,6 +95,70 @@ def discover(
     console.print(
         f"Discovered {len(records)} source records; "
         f"stop_reason={run_diagnostics.stop_reason}"
+    )
+
+
+@app.command()
+def download(
+    source_manifest: Annotated[
+        Path,
+        typer.Option(
+            "--source-manifest",
+            help="Path to a PR 2 source manifest JSONL.",
+        ),
+    ] = Path("outputs/source_manifest.jsonl"),
+    output_manifest: Annotated[
+        Path,
+        typer.Option(
+            "--output-manifest",
+            help="Path for the updated download manifest JSONL.",
+        ),
+    ] = Path("outputs/download_manifest.jsonl"),
+    diagnostics: Annotated[
+        Path,
+        typer.Option(
+            "--diagnostics",
+            help="Path for download diagnostics JSON.",
+        ),
+    ] = Path("outputs/download_diagnostics.json"),
+    download_dir: Annotated[
+        Path,
+        typer.Option(
+            "--download-dir",
+            help="Directory for downloaded PDFs.",
+        ),
+    ] = Path("downloads/pdfs"),
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force/--no-force",
+            help="Redownload even when an existing valid local file is present.",
+        ),
+    ] = False,
+    request_delay_seconds: Annotated[
+        float | None,
+        typer.Option(min=0.0, help="Delay between PDF requests."),
+    ] = None,
+) -> None:
+    """Manually download PDFs from a source manifest and record checksums."""
+    settings = DownloadSettings()
+    records, run_diagnostics = download_source_pdfs(
+        source_manifest_path=source_manifest,
+        output_manifest_path=output_manifest,
+        diagnostics_path=diagnostics,
+        download_dir=download_dir,
+        force=force,
+        request_delay_seconds=(
+            request_delay_seconds
+            if request_delay_seconds is not None
+            else settings.request_delay_seconds
+        ),
+    )
+    console.print(
+        f"Processed {len(records)} source records; "
+        f"downloaded={run_diagnostics.downloaded_records}; "
+        f"skipped_existing={run_diagnostics.skipped_existing_records}; "
+        f"failed={run_diagnostics.failed_records}"
     )
 
 

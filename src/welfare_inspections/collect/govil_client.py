@@ -42,6 +42,13 @@ class JsonFetch:
     diagnostic: HttpDiagnostic
 
 
+@dataclass(frozen=True)
+class BinaryFetch:
+    url: str
+    content: bytes
+    diagnostic: HttpDiagnostic
+
+
 class GovilClient:
     """Small sync client used only by manually invoked discovery runs."""
 
@@ -122,6 +129,36 @@ class GovilClient:
         except Exception as exc:
             return _error_fetch(url, elapsed, exc.__class__.__name__)
 
+    def fetch_binary(self, url: str) -> BinaryFetch:
+        started = time.monotonic()
+        try:
+            response = self._get_with_retries(url)
+        except RetryError as exc:
+            elapsed = time.monotonic() - started
+            return _error_binary_fetch(url, elapsed, _retry_error_name(exc))
+        except Exception as exc:
+            elapsed = time.monotonic() - started
+            return _error_binary_fetch(url, elapsed, exc.__class__.__name__)
+
+        elapsed = time.monotonic() - started
+        try:
+            content = response.content if response.status_code == 200 else b""
+            text_sample = content[:4096].decode("utf-8", errors="ignore")
+            diagnostic = HttpDiagnostic(
+                url=str(response.url),
+                status_code=response.status_code,
+                response_headers=_diagnostic_headers(response.headers),
+                elapsed_seconds=elapsed,
+                is_blocked=is_blocked_response(response.status_code, text_sample),
+            )
+            return BinaryFetch(
+                url=str(response.url),
+                content=content,
+                diagnostic=diagnostic,
+            )
+        except Exception as exc:
+            return _error_binary_fetch(url, elapsed, exc.__class__.__name__)
+
     def post_json(
         self,
         url: str,
@@ -174,6 +211,15 @@ def _error_json_fetch(url: str, elapsed_seconds: float, error: str) -> JsonFetch
         error=error,
     )
     return JsonFetch(url=url, data={}, diagnostic=diagnostic)
+
+
+def _error_binary_fetch(url: str, elapsed_seconds: float, error: str) -> BinaryFetch:
+    diagnostic = HttpDiagnostic(
+        url=url,
+        elapsed_seconds=elapsed_seconds,
+        error=error,
+    )
+    return BinaryFetch(url=url, content=b"", diagnostic=diagnostic)
 
 
 def _retry_error_name(exc: RetryError) -> str:

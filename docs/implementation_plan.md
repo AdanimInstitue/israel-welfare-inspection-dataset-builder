@@ -26,11 +26,14 @@ Acceptance criteria:
 
 Tasks:
 
-- Implement manifest reader/writer.
-- Download PDFs from source manifest entries.
-- Compute SHA-256 and record HTTP diagnostics.
-- Make downloads resumable and idempotent.
-- Add mocked download tests.
+- Implement manifest reader/writer. Done in `collect.manifest`.
+- Download PDFs from source manifest entries. Done via manual
+  `welfare-inspections download`.
+- Compute SHA-256 and record HTTP diagnostics. Done with per-record and run
+  diagnostics.
+- Make downloads resumable and idempotent. Done for existing valid files;
+  checksum mismatches are diagnosed and left untouched unless forced.
+- Add mocked download tests. Done; no live Gov.il access in tests.
 
 Acceptance criteria:
 
