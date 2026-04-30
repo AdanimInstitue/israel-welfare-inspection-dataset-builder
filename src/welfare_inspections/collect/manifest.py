@@ -10,6 +10,7 @@ from welfare_inspections.collect.models import (
     DiscoveryRunDiagnostics,
     DownloadRunDiagnostics,
     SourceDocumentRecord,
+    TextExtractionRunDiagnostics,
 )
 
 
@@ -54,5 +55,12 @@ def write_discovery_diagnostics(
 def write_download_diagnostics(
     path: Path,
     diagnostics: DownloadRunDiagnostics,
+) -> None:
+    _write_model_json(path, diagnostics)
+
+
+def write_text_extraction_diagnostics(
+    path: Path,
+    diagnostics: TextExtractionRunDiagnostics,
 ) -> None:
     _write_model_json(path, diagnostics)

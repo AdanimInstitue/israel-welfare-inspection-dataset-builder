@@ -17,9 +17,11 @@ src/
       manifest.py           source JSONL and diagnostics readers/writers
       models.py             Pydantic source discovery contracts
       pdf_download.py       manual PDF download/checksum manifest layer
+      pdf_text.py           manual embedded PDF text extraction diagnostics
       portal_discovery.py   skip-based HTML/structured-endpoint orchestration
       portal_parser.py      Gov.il-like HTML and DynamicCollector parser
       settings.py           environment-configurable manual command defaults
+    text_normalization.py   deterministic extracted-text normalization helpers
 
 schemas/
   report.schema.json       placeholder report contract
@@ -31,6 +33,7 @@ tests/
   test_imports.py      package and CLI smoke tests
   test_docs_exist.py   docs/schema existence and content-contract tests
   test_pdf_download.py mocked manifest/download/checksum tests
+  test_pdf_text_extraction.py synthetic embedded-text/normalization tests
   test_source_discovery.py mocked discovery/parser/manifest tests
 
 docs/

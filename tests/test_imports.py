@@ -58,6 +58,18 @@ def test_cli_discover_help_works() -> None:
     assert "source manifest" in result.stdout
 
 
+def test_cli_parse_help_works() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "welfare_inspections.cli", "parse", "--help"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "embedded text" in result.stdout
+
+
 def test_cli_main_accepts_empty_args() -> None:
     from welfare_inspections.cli import main
 

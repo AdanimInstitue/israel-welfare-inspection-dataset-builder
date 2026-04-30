@@ -124,3 +124,61 @@ class DownloadRunDiagnostics(BaseModel):
     record_diagnostics: list[DownloadRecordDiagnostic] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
     extra: dict[str, Any] = Field(default_factory=dict)
+
+
+class TextPageDiagnostic(BaseModel):
+    """Per-page diagnostics for embedded PDF text extraction."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    page_number: int
+    status: str
+    raw_char_count: int = 0
+    normalized_char_count: int = 0
+    warning: str | None = None
+
+
+class TextExtractionRecordDiagnostic(BaseModel):
+    """Per-source-record diagnostics for one embedded text extraction attempt."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_document_id: str
+    govil_item_slug: str | None = None
+    govil_item_url: str
+    pdf_url: str
+    title: str | None = None
+    language_path: str | None = None
+    pdf_sha256: str | None = None
+    local_path: str | None = None
+    status: str
+    text_path: str | None = None
+    page_count: int | None = None
+    pdf_metadata: dict[str, str] = Field(default_factory=dict)
+    pages: list[TextPageDiagnostic] = Field(default_factory=list)
+    raw_char_count: int = 0
+    normalized_char_count: int = 0
+    warnings: list[str] = Field(default_factory=list)
+    error: str | None = None
+    checked_at: datetime = Field(default_factory=utc_now)
+
+
+class TextExtractionRunDiagnostics(BaseModel):
+    """Sidecar diagnostics for one manual embedded text extraction run."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    started_at: datetime = Field(default_factory=utc_now)
+    finished_at: datetime | None = None
+    source_manifest_path: str
+    text_output_dir: str
+    total_records: int = 0
+    extracted_records: int = 0
+    warning_records: int = 0
+    failed_records: int = 0
+    missing_pdf_records: int = 0
+    record_diagnostics: list[TextExtractionRecordDiagnostic] = Field(
+        default_factory=list
+    )
+    notes: list[str] = Field(default_factory=list)
+    extra: dict[str, Any] = Field(default_factory=dict)
