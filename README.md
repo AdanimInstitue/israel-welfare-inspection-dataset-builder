@@ -31,6 +31,7 @@ automation, PDF parsing, OCR, dataset publication, or generated artifacts.
 
 ## Documentation
 
+- [Agent instructions](AGENTS.md)
 - [Architecture](docs/architecture.md)
 - [Source site notes](docs/source_site_notes.md)
 - [Schema](docs/schema.md)

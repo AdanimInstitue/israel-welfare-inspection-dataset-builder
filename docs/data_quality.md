@@ -39,6 +39,17 @@ hand-authored synthetic fixtures. Golden expected outputs should focus on stable
 contracts and representative document patterns, not one-off overfitting to a
 single PDF.
 
+## Fixture Policy
+
+The builder repository may contain only small, clearly licensed, reviewable
+fixtures. Downloaded PDFs from normal runs must not be committed. Large or
+generated artifacts belong outside the builder repository, and canonical dataset
+outputs belong in the paired data repository.
+
+Golden expected outputs should be text-based where possible, such as JSON, JSONL,
+CSV, or plain text. Any real source PDF fixture must be intentionally added in a
+later PR with clear provenance and licensing notes.
+
 ## Auditability
 
 Every public row should be reproducible from source documents and parser
