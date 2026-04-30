@@ -9,19 +9,23 @@ Ministry of Welfare and Social Affairs / Ministry of Welfare and Social
 Security to publish public inspection and supervision reports for out-of-home
 welfare facilities, including hostels, residential centers, and care facilities.
 
-PR 1 does not implement discovery. It records the intended investigation and
-collector design.
+PR 2 adds an inert-by-default discovery prototype. It is run only by manual
+local command and is tested only with mocked HTML/HTTP responses.
 
 ## Discovery Strategy
 
 1. Inspect the Gov.il dynamic collector page starting at `skip=0`.
 2. Prefer a stable structured data endpoint if the dynamic collector uses one.
 3. Use `httpx` against a structured endpoint when possible.
-4. Use rendered HTML inspection when records are present in server output.
+4. Use server HTML parsing when records are present in server output.
 5. Use Playwright only as a browser-rendered fallback when records are available
    only after client-side rendering and this approach is appropriate for the
    public portal.
 6. Preserve source provenance for every discovered report.
+
+The PR 2 implementation parses Gov.il-like HTML for public PDF/file links,
+derives deterministic source document IDs, and writes a source manifest JSONL
+plus diagnostics sidecar. It does not download PDFs.
 
 ## Pagination Questions
 
@@ -38,6 +42,11 @@ Future source-discovery work must answer:
 - Are all records reachable by iterating `skip`, or is there a separate Gov.il
   dynamic collector data source?
 
+The prototype iterates `skip` conservatively by a configurable page size and
+stops on an empty page, repeated page signature, no new records, or max pages.
+The default command starts at `skip=0`, uses a page size of 10, and limits a run
+to five pages unless overridden.
+
 ## Discovery Mechanisms to Record
 
 Future implementation should explicitly document whether records are discovered
@@ -51,6 +60,22 @@ through:
 Any access limitations observed during implementation should be recorded here.
 The collector must not attempt to bypass access controls or access non-public
 information.
+
+Current local observation from this implementation environment: direct `curl`
+requests to the canonical page returned HTTP 403 with a Cloudflare block page on
+2026-04-30. The prototype records blocked responses in diagnostics instead of
+attempting to bypass the block.
+
+Manual local probe command:
+
+```bash
+welfare-inspections discover \
+  --output outputs/source_manifest.jsonl \
+  --diagnostics outputs/discovery_diagnostics.json
+```
+
+Generated outputs are ignored by git and should be inspected locally before
+being used by later PRs.
 
 ## Required Source Record
 
