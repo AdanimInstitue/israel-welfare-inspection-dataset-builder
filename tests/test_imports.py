@@ -55,7 +55,7 @@ def test_cli_discover_help_works() -> None:
     )
 
     assert result.returncode == 0
-    assert "--output" in result.stdout
+    assert "source manifest" in result.stdout
 
 
 def test_cli_main_accepts_empty_args() -> None:
