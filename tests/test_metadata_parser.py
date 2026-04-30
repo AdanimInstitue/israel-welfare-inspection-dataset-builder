@@ -177,6 +177,89 @@ def test_parse_metadata_handles_unavailable_extraction_as_diagnostic(
     )
 
 
+def test_parse_metadata_records_unreadable_text_and_continues(
+    tmp_path: Path,
+) -> None:
+    bad_text_path = tmp_path / "source-doc-bad-text.txt"
+    bad_text_path.write_bytes(b"\xff\xfe\x00")
+    good_text_path = _write_text(
+        tmp_path,
+        "source-doc-good-text",
+        "--- page 1 ---\nשם המסגרת: בית תקין\nסמל מסגרת: 12345\n",
+    )
+    diagnostics_path = _write_diagnostics(
+        tmp_path,
+        [
+            _diagnostic("bad-text", bad_text_path),
+            _diagnostic("good-text", good_text_path),
+        ],
+    )
+
+    diagnostics = parse_metadata_from_text_diagnostics(
+        text_diagnostics_path=diagnostics_path,
+        output_path=tmp_path / "metadata.jsonl",
+        diagnostics_path=tmp_path / "metadata-diagnostics.json",
+    )
+
+    rows = _read_jsonl(tmp_path / "metadata.jsonl")
+    payload = json.loads(
+        (tmp_path / "metadata-diagnostics.json").read_text(encoding="utf-8")
+    )
+    assert diagnostics.parsed_records == 1
+    assert diagnostics.failed_records == 1
+    assert rows[0]["source_document_id"] == "source-doc-good-text"
+    assert payload["record_diagnostics"][0]["status"] == "failed"
+    assert payload["record_diagnostics"][0]["error"] == "text_file_unreadable"
+    assert payload["record_diagnostics"][1]["status"] == "parsed"
+
+
+def test_parse_metadata_warns_on_ambiguous_facility_id(tmp_path: Path) -> None:
+    text_path = _write_text(
+        tmp_path,
+        "source-doc-ambiguous-id",
+        "--- page 1 ---\nשם המסגרת: בית\nסמל מסגרת: 123 / 456\n",
+    )
+    diagnostics_path = _write_diagnostics(
+        tmp_path,
+        [_diagnostic("ambiguous-id", text_path)],
+    )
+
+    parse_metadata_from_text_diagnostics(
+        text_diagnostics_path=diagnostics_path,
+        output_path=tmp_path / "metadata.jsonl",
+        diagnostics_path=tmp_path / "metadata-diagnostics.json",
+    )
+
+    facility_id = _read_jsonl(tmp_path / "metadata.jsonl")[0]["fields"]["facility_id"]
+    assert facility_id["raw_value"] == "123 / 456"
+    assert facility_id["normalized_value"] is None
+    assert facility_id["confidence"] == 0.2
+    assert facility_id["warnings"] == ["ambiguous_facility_id"]
+
+
+def test_parse_metadata_allows_single_embedded_facility_id(tmp_path: Path) -> None:
+    text_path = _write_text(
+        tmp_path,
+        "source-doc-single-id",
+        "--- page 1 ---\nשם המסגרת: בית\nסמל מסגרת: מסגרת 12345\n",
+    )
+    diagnostics_path = _write_diagnostics(
+        tmp_path,
+        [_diagnostic("single-id", text_path)],
+    )
+
+    parse_metadata_from_text_diagnostics(
+        text_diagnostics_path=diagnostics_path,
+        output_path=tmp_path / "metadata.jsonl",
+        diagnostics_path=tmp_path / "metadata-diagnostics.json",
+    )
+
+    facility_id = _read_jsonl(tmp_path / "metadata.jsonl")[0]["fields"]["facility_id"]
+    assert facility_id["raw_value"] == "מסגרת 12345"
+    assert facility_id["normalized_value"] == "12345"
+    assert facility_id["warnings"] == []
+
+
 def test_split_extracted_pages_without_markers_preserves_unknown_page() -> None:
     pages = split_extracted_pages("שם המסגרת: ללא סימון")
 

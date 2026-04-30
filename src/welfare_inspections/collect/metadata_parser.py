@@ -42,6 +42,8 @@ FIELD_LABELS: dict[str, tuple[str, ...]] = {
     "administration": ("מינהל", "מנהל", "אגף"),
     "visit_type": ("סוג ביקור", "סוג הביקור", "מהות הביקור"),
 }
+FACILITY_ID_RE = re.compile(r"^\d{3,10}$")
+FACILITY_ID_GROUP_RE = re.compile(r"\d+")
 DATE_FIELD_LABELS: dict[str, tuple[str, ...]] = {
     "visit_date": ("תאריך ביקור", "מועד ביקור", "תאריך הביקור"),
     "report_publication_date": (
@@ -166,7 +168,21 @@ def _parse_record(
         record_diagnostic.warnings.append(warning)
         return None, record_diagnostic
 
-    pages = split_extracted_pages(text_path.read_text(encoding="utf-8"))
+    try:
+        text = text_path.read_text(encoding="utf-8")
+        pages = split_extracted_pages(text)
+    except (OSError, UnicodeDecodeError) as exc:
+        warning = _warning(
+            diagnostic.source_document_id,
+            report_id,
+            "text_file_unreadable",
+            f"Cannot parse metadata because text file could not be read: {exc}",
+        )
+        record_diagnostic.status = "failed"
+        record_diagnostic.error = "text_file_unreadable"
+        record_diagnostic.warnings.append(warning)
+        return None, record_diagnostic
+
     record = _base_report_record(diagnostic=diagnostic, report_id=report_id)
     record.fields.update(
         parse_metadata_fields(pages, diagnostic.source_document_id, report_id)
@@ -195,14 +211,18 @@ def parse_metadata_fields(
         if match is None:
             continue
         raw_value = normalize_extracted_text(match.value)
-        normalized_value = _normalize_text_field(field_name, raw_value)
+        normalized_value, warnings, confidence = _normalize_text_field(
+            field_name,
+            raw_value,
+        )
         fields[field_name] = MetadataField(
             field_name=field_name,
             raw_value=raw_value,
             normalized_value=normalized_value,
             raw_excerpt=match.excerpt,
             page_number=match.page_number,
-            confidence=0.9 if normalized_value == raw_value else 0.82,
+            confidence=confidence,
+            warnings=warnings,
         )
 
     for field_name, labels in DATE_FIELD_LABELS.items():
@@ -303,14 +323,31 @@ def _label_pattern(labels: tuple[str, ...], *, date_only: bool) -> re.Pattern[st
     return re.compile(template.format(labels=escaped_labels))
 
 
-def _normalize_text_field(field_name: str, value: str) -> str:
+def _normalize_text_field(
+    field_name: str,
+    value: str,
+) -> tuple[str | None, list[str], float]:
     if field_name == "facility_id":
-        return re.sub(r"\D+", "", value)
+        return _normalize_facility_id(value)
     if field_name == "facility_type":
-        return FACILITY_TYPE_NORMALIZATIONS.get(value, value)
+        normalized_value = FACILITY_TYPE_NORMALIZATIONS.get(value, value)
+        return normalized_value, [], 0.9 if normalized_value == value else 0.82
     if field_name == "visit_type":
-        return VISIT_TYPE_NORMALIZATIONS.get(value, value)
-    return value
+        normalized_value = VISIT_TYPE_NORMALIZATIONS.get(value, value)
+        return normalized_value, [], 0.9 if normalized_value == value else 0.82
+    return value, [], 0.9
+
+
+def _normalize_facility_id(value: str) -> tuple[str | None, list[str], float]:
+    stripped_value = value.strip()
+    if FACILITY_ID_RE.fullmatch(stripped_value):
+        return stripped_value, [], 0.9
+
+    digit_groups = FACILITY_ID_GROUP_RE.findall(stripped_value)
+    if len(digit_groups) == 1 and FACILITY_ID_RE.fullmatch(digit_groups[0]):
+        return digit_groups[0], [], 0.82
+
+    return None, ["ambiguous_facility_id"], 0.2
 
 
 def _base_report_record(
