@@ -55,6 +55,12 @@ Tracks one parsed inspection report.
 | `extraction_status` | string | derived |
 | `extraction_confidence` | number/null | derived |
 
+PR 5 emits local ignored metadata JSONL with the report provenance fields above
+plus a `fields` object. Each parsed field keeps `raw_value`,
+`normalized_value`, `raw_excerpt`, `page_number`, `confidence`, and field-level
+`warnings` together. This output is an intermediate parse artifact, not the
+final canonical dataset export.
+
 ## `inspection_findings`
 
 Tracks individual findings, standards, recommendations, or section-level
@@ -87,6 +93,11 @@ Tracks row-level and document-level parsing diagnostics.
 | `message` | string | derived |
 | `page_number` | integer/null | derived |
 | `raw_excerpt` | string/null | raw |
+
+PR 5 metadata warnings are emitted both on each report metadata row and in the
+metadata parse diagnostics sidecar. Missing deterministic top-level fields,
+malformed dates, unavailable extracted text, and missing text files are warnings
+or per-document diagnostics rather than full-run failures.
 
 ## Placeholder JSON Schemas
 

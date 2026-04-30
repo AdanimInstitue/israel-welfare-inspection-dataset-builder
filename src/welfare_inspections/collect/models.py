@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from hashlib import sha256
 from typing import Any
 
@@ -180,6 +180,95 @@ class TextExtractionRunDiagnostics(BaseModel):
     missing_local_path_records: int = 0
     skipped_existing_records: int = 0
     record_diagnostics: list[TextExtractionRecordDiagnostic] = Field(
+        default_factory=list
+    )
+    notes: list[str] = Field(default_factory=list)
+    extra: dict[str, Any] = Field(default_factory=dict)
+
+
+class MetadataField(BaseModel):
+    """One deterministic report-level metadata field plus evidence."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    field_name: str
+    raw_value: str | None = None
+    normalized_value: str | date | None = None
+    raw_excerpt: str | None = None
+    page_number: int | None = None
+    confidence: float = Field(ge=0.0, le=1.0)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class MetadataParseWarning(BaseModel):
+    """Document-level metadata parsing warning."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    warning_id: str
+    source_document_id: str
+    report_id: str | None = None
+    severity: str = "warning"
+    parser_stage: str = "metadata"
+    message: str
+    page_number: int | None = None
+    raw_excerpt: str | None = None
+
+
+class ReportMetadataRecord(BaseModel):
+    """Top-level metadata parsed from one extracted inspection report."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    report_id: str
+    source_document_id: str
+    govil_item_slug: str | None = None
+    govil_item_url: str
+    pdf_url: str
+    title: str | None = None
+    language_path: str | None = None
+    pdf_sha256: str | None = None
+    local_path: str | None = None
+    text_path: str | None = None
+    page_count: int | None = None
+    extraction_status: str
+    extraction_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    fields: dict[str, MetadataField] = Field(default_factory=dict)
+    warnings: list[MetadataParseWarning] = Field(default_factory=list)
+    parsed_at: datetime = Field(default_factory=utc_now)
+
+
+class MetadataParseRecordDiagnostic(BaseModel):
+    """Per-document diagnostics for metadata parsing."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_document_id: str
+    report_id: str | None = None
+    status: str
+    text_path: str | None = None
+    page_count: int | None = None
+    extraction_status: str | None = None
+    parsed_field_count: int = 0
+    warnings: list[MetadataParseWarning] = Field(default_factory=list)
+    error: str | None = None
+    checked_at: datetime = Field(default_factory=utc_now)
+
+
+class MetadataParseRunDiagnostics(BaseModel):
+    """Sidecar diagnostics for one manual metadata parsing run."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    started_at: datetime = Field(default_factory=utc_now)
+    finished_at: datetime | None = None
+    text_diagnostics_path: str
+    output_path: str
+    total_records: int = 0
+    parsed_records: int = 0
+    warning_records: int = 0
+    failed_records: int = 0
+    record_diagnostics: list[MetadataParseRecordDiagnostic] = Field(
         default_factory=list
     )
     notes: list[str] = Field(default_factory=list)

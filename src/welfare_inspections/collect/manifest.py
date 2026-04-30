@@ -9,6 +9,8 @@ from pydantic import BaseModel
 from welfare_inspections.collect.models import (
     DiscoveryRunDiagnostics,
     DownloadRunDiagnostics,
+    MetadataParseRunDiagnostics,
+    ReportMetadataRecord,
     SourceDocumentRecord,
     TextExtractionRunDiagnostics,
 )
@@ -45,6 +47,21 @@ def write_source_manifest(path: Path, records: list[SourceDocumentRecord]) -> No
     _atomic_write_text(path, "\n".join(lines) + ("\n" if lines else ""))
 
 
+def read_text_extraction_diagnostics(path: Path) -> TextExtractionRunDiagnostics:
+    try:
+        return TextExtractionRunDiagnostics.model_validate_json(
+            path.read_text(encoding="utf-8")
+        )
+    except ValueError as exc:
+        msg = f"Invalid text extraction diagnostics JSON at {path}"
+        raise ValueError(msg) from exc
+
+
+def write_metadata_manifest(path: Path, records: list[ReportMetadataRecord]) -> None:
+    lines = [record.model_dump_json() for record in records]
+    _atomic_write_text(path, "\n".join(lines) + ("\n" if lines else ""))
+
+
 def write_discovery_diagnostics(
     path: Path,
     diagnostics: DiscoveryRunDiagnostics,
@@ -62,5 +79,12 @@ def write_download_diagnostics(
 def write_text_extraction_diagnostics(
     path: Path,
     diagnostics: TextExtractionRunDiagnostics,
+) -> None:
+    _write_model_json(path, diagnostics)
+
+
+def write_metadata_parse_diagnostics(
+    path: Path,
+    diagnostics: MetadataParseRunDiagnostics,
 ) -> None:
     _write_model_json(path, diagnostics)
