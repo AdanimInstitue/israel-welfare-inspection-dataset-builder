@@ -14,8 +14,19 @@ inert-by-default downloader that consumes the discovery manifest and downloads
 only the public `pdf_url` values when manually invoked. PR 4 adds an
 inert-by-default embedded-text extractor that consumes the download manifest and
 local PDF paths. PR 5 adds an inert-by-default metadata parser that consumes
-only PR 4 extracted text and diagnostics. These stages are tested only with
-mocked or synthetic inputs.
+only PR 4 extracted text and diagnostics. PR 6 adds local schema validation and
+exports. These stages are tested only with mocked or synthetic inputs.
+
+Real-source inspection after PR 6 showed two practical source constraints:
+
+- Some environments receive Cloudflare 403 or HTML responses from direct HTTP
+  requests even though the public page loads in a normal browser.
+- Embedded text extraction succeeds technically, but deterministic parsing of
+  real report metadata is not reliable enough for publication.
+
+Future source and extraction work should therefore support browser-rendered
+public collection/download paths and required LLM extraction over rendered PDF
+pages, while preserving all provenance and avoiding private browser state.
 
 ## Discovery Strategy
 
@@ -23,8 +34,8 @@ mocked or synthetic inputs.
 2. Prefer a stable structured data endpoint if the dynamic collector uses one.
 3. Use `httpx` against a structured endpoint when possible.
 4. Use server HTML parsing when records are present in server output.
-5. Use Playwright only as a browser-rendered fallback when records are available
-   only after client-side rendering and this approach is appropriate for the
+5. Use browser-rendered public collection when direct HTTP access returns
+   blocked or incomplete responses and this approach is appropriate for the
    public portal.
 6. Preserve source provenance for every discovered report.
 
@@ -61,6 +72,11 @@ through:
 Any access limitations observed during implementation should be recorded here.
 The collector must not attempt to bypass access controls or access non-public
 information.
+
+Browser-mediated collection should use a temporary profile whenever possible and
+must not rely on personal logged-in cookies for public source data. If a manual
+browser session is used for diagnosis, diagnostics should record that method
+without storing unrelated browser state.
 
 Current local observation from this implementation environment on 2026-04-30:
 plain `curl` requests to the canonical page can receive a Cloudflare HTTP 403,

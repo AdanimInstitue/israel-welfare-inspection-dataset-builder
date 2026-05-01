@@ -11,8 +11,9 @@ government publications and is not an attempt to access non-public information.
 ## Source vs. Derived Data
 
 Official source PDFs remain the Ministry's publications. Parsed tables,
-manifests, warnings, and exported datasets are unofficial derived data produced
-by the builder pipeline and may contain parsing or OCR errors.
+manifests, warnings, LLM extraction candidates, reconciliation decisions, and
+exported datasets are unofficial derived data produced by the builder pipeline
+and may contain parsing, OCR, or LLM errors.
 
 Publication materials should include:
 
@@ -20,6 +21,7 @@ Publication materials should include:
 - attribution to the Israeli Ministry of Welfare as source of original PDFs
 - attribution to the derived-data pipeline
 - OCR/parsing accuracy disclaimer
+- LLM extraction disclaimer when LLM-derived fields are published
 - warning that parsed data may contain errors
 - distinction between official source documents and parsed derived data
 - provenance and reproducibility notes
@@ -34,6 +36,13 @@ If sensitive personal data is accidentally extracted, it should not be published
 without review. Future publication workflows should include checks for privacy
 risk under Israeli privacy law and GDPR-style data minimization principles.
 
+LLM prompts and provider payloads should use only public source documents and
+pipeline-generated artifacts needed for extraction. Do not send secrets,
+private browser state, personal local files, unrelated cookies, or private local
+configuration to an LLM provider. Prompt and response logs must be stored only
+when they are safe to retain and useful for audit; otherwise store hashes,
+model/prompt versions, and structured extraction diagnostics.
+
 ## Data Repository Placeholders
 
 The paired data repository should eventually include `NOTICE.md`,
@@ -43,8 +52,8 @@ extraction run manifests, and release snapshots.
 ## v0 Preview Publication Policy
 
 A first manual dataset publication may be prepared as a `v0 preview` before
-scheduled build and publication automation exists. This preview must be
-report-metadata-only, PR-based into
+scheduled build and publication automation exists. This preview should be
+report-metadata-first, PR-based into
 `AdanimInstitue/israel-welfare-inspection-dataset`, and reviewed before merge.
 
 The preview PR should include:
@@ -52,10 +61,12 @@ The preview PR should include:
 - clear `v0 preview` language
 - source provenance and run dates
 - diagnostics summary and known limitations
+- model and prompt provenance for any LLM-derived fields
 - CC BY 4.0 target license notice for derived outputs
 - attribution to the Ministry of Welfare as source publisher
 - attribution to the Adanim/Taub/builder pipeline for derived parsed data
 - disclaimer that parsed data is unofficial and may contain errors
 
 Do not publish downloaded PDFs, unreviewed large artifacts, finding-level rows,
-OCR-derived fields, or any suspected personal/sensitive data in the v0 preview.
+or any suspected personal/sensitive data in the v0 preview. LLM-derived fields
+must be clearly marked through provenance and reconciliation metadata.

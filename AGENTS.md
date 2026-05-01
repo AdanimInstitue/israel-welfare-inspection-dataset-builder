@@ -55,8 +55,19 @@ put project design detail in `docs/`.
 
 ## Parsing And Data Rules
 
-- Prefer deterministic, auditable parsing before AI or LLM extraction.
-- Do not use opaque LLM-based extraction for v1.
+- Use both deterministic extraction and LLM-based extraction in normal
+  production runs. The real source PDFs are not reliably parseable through
+  embedded text alone, and the Ministry does not expect to change the PDF
+  structure in the near term.
+- LLM extraction must be auditable, schema-bound, and provenance-preserving.
+  Do not accept opaque free-text LLM answers into canonical outputs.
+- Multimodal LLM extraction should inspect rendered PDF pages when embedded
+  text is insufficient, and every returned field must include source evidence
+  such as page number, raw excerpt or visual locator, confidence, model name,
+  prompt/template version, and validation status.
+- Merge deterministic and LLM-derived candidates conservatively. Preserve both
+  candidates when they conflict, emit diagnostics, and require validation before
+  publication.
 - Preserve provenance for every discovered document and every derived row.
 - Treat parse failures as row-level warnings where possible.
 - Keep Hebrew canonical text in logical order.

@@ -102,18 +102,22 @@ Acceptance criteria:
 
 ## Manual v0 Preview Dataset Publication
 
-This is an optional, checkpointed manual path before PR 7 and PR 8 automation.
-It may be used to produce a first public preview in the paired data repository,
-but only as a report-metadata-only v0 preview.
+This is an optional, checkpointed manual path before weekly and publication
+automation. It may be used to produce a first public preview in the paired data
+repository, but only after required LLM extraction and reconciliation are
+represented in the local artifacts. Until those stages exist, the current
+outputs are suitable for pipeline inspection, not publication as meaningful
+parsed metadata.
 
 Steps:
 
-1. Run the existing local pipeline manually against public Gov.il data:
-   `discover`, `download`, `parse`, `parse-metadata`, and `export`.
+1. Run the local pipeline manually against public Gov.il data:
+   `discover`, `download`, `parse`, future `render-pages`, future
+   `extract-llm`, future `reconcile`, and `export`.
 2. Review generated outputs and diagnostics locally before any publication
    work. Do not publish if diagnostics show structural validation failures,
-   missing required provenance, unexpectedly low extraction coverage, or privacy
-   risk.
+   missing required provenance, unexpectedly low extraction coverage, missing
+   required LLM stages, unresolved reconciliation conflicts, or privacy risk.
 3. Prepare a data-repo branch containing only reviewed v0 report metadata
    artifacts, diagnostics summaries, schema/readme metadata, notices, and
    disclaimers. Do not copy downloaded PDFs, builder-local caches, or large
@@ -125,8 +129,10 @@ Steps:
 
 Boundaries:
 
-- Report-level metadata only: no finding-level rows.
-- No OCR fallback.
+- Report-level metadata first; finding-level rows need separate reviewed scope.
+- LLM extraction is required once implemented; deterministic-only output is not
+  enough for publication.
+- OCR remains optional and secondary to multimodal LLM extraction.
 - No scheduled workflow or automated publication.
 - No generated dataset artifacts committed to this builder repository.
 - Publication remains PR-based and human-reviewed.
@@ -134,3 +140,79 @@ Boundaries:
 Pause point:
 
 - Stop after documenting this plan and before Step 1 until the plan is reviewed.
+
+## PR 7: LLM Extraction Contracts and Page Rendering
+
+Tasks:
+
+- Add ignored local page rendering outputs for downloaded PDFs.
+- Add schema/Pydantic contracts for LLM extraction candidates and diagnostics.
+- Add a required-but-inert-by-default `welfare-inspections extract-llm` command
+  that can run in production when provider configuration is present.
+- Support embedded-text and multimodal page-image inputs.
+- Store model name, prompt/template version, input artifact refs, page evidence,
+  confidence, warnings, and validation status for every candidate.
+- Add mocked/offline tests only; no live LLM calls in CI.
+
+Acceptance criteria:
+
+- Production extraction fails closed if required LLM provider configuration is
+  absent, unless explicitly run in dry-run/test mode.
+- LLM outputs are candidate manifests, not accepted canonical rows.
+- No prompt, response, image, or PDF artifacts are committed to the builder
+  repository.
+
+## PR 8: Candidate Reconciliation and Backfill
+
+Tasks:
+
+- Add reconciliation contracts for deterministic candidates, text-LLM
+  candidates, multimodal-LLM candidates, OCR candidates if present, and
+  existing canonical values.
+- Add `welfare-inspections reconcile`.
+- Add `welfare-inspections backfill` for versioned historical reprocessing.
+- Preserve candidate conflicts and before/after canonical changes as
+  diagnostics.
+- Add filters such as `--source-document-id`, `--report-id`, `--since`,
+  `--limit`, and `--dry-run`.
+
+Acceptance criteria:
+
+- Reconciliation never silently overwrites deterministic or previously
+  published values.
+- Backfills are idempotent, resumable, and produce reviewable change summaries.
+- Canonical exports identify accepted extraction methods and candidate IDs.
+
+## PR 9: Weekly Incremental Workflow and Artifact Upload
+
+Tasks:
+
+- Add a safe weekly workflow for discover/download/parse/render/LLM
+  extraction/reconcile/export artifact generation.
+- Reuse existing artifacts when source checksum and schema/model/prompt/render
+  versions are unchanged.
+- Upload diagnostics and review artifacts without publishing directly.
+
+Acceptance criteria:
+
+- Workflow is credential-aware and fails clearly when required LLM credentials
+  are missing.
+- CI remains offline and deterministic.
+- Weekly jobs do not run historical backfills implicitly.
+
+## PR 10: Publish PR Flow Into Data Repo
+
+Tasks:
+
+- Implement publication automation that opens a PR into
+  `AdanimInstitue/israel-welfare-inspection-dataset`.
+- Include provenance, diagnostics summaries, LLM/model/prompt metadata,
+  disclaimers, and release notes.
+- Never push directly to data repo `main`.
+
+Acceptance criteria:
+
+- Publication is PR-based and human-reviewable.
+- Generated artifacts remain out of the builder repository.
+- Data-repo PRs clearly distinguish official source documents from unofficial
+  derived data.

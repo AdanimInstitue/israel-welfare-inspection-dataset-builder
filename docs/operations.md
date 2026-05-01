@@ -9,6 +9,12 @@ reads PR 5 metadata JSONL and diagnostics. These commands are inert by default
 and write ignored local outputs. CI remains offline and uses mocked or synthetic
 inputs only.
 
+Real PDF inspection showed that embedded-text parsing alone is not sufficient
+for useful publication. The production pipeline therefore needs required
+LLM-based extraction, including multimodal extraction from rendered PDF pages,
+plus reconciliation before publication. Existing deterministic stages remain as
+cheap candidate generators and validation aids.
+
 ## Future CLI
 
 The future CLI should be exposed as `welfare-inspections`.
@@ -23,6 +29,10 @@ Current manual commands:
 
 Planned future commands:
 
+- `welfare-inspections render-pages`
+- `welfare-inspections extract-llm`
+- `welfare-inspections reconcile`
+- `welfare-inspections backfill`
 - `welfare-inspections build`
 - `welfare-inspections publish`
 - `welfare-inspections run-all`
@@ -34,6 +44,14 @@ Expected behavior:
 - `parse` extracts embedded text and PDF diagnostics from downloaded PDFs.
 - `parse-metadata` parses report-level metadata from extracted text and text
   diagnostics.
+- `render-pages` renders PDFs into ignored page images/crops for multimodal
+  extraction.
+- `extract-llm` runs required schema-bound LLM extraction and writes candidate
+  manifests plus diagnostics.
+- `reconcile` merges deterministic, text-LLM, multimodal-LLM, OCR, and existing
+  candidates into canonical rows.
+- `backfill` reprocesses historical documents when model, prompt, schema,
+  renderer, parser, or reconciliation versions change.
 - `export` validates parsed report metadata and emits local CSV/JSONL outputs.
 - `build` will later chain broader dataset outputs into a local output
   directory.
@@ -124,6 +142,64 @@ artifact set. It does not inspect PDFs, collect from Gov.il, OCR, parse
 finding-level rows, publish data, write to the paired data repository, or
 contact the network.
 
+Planned LLM extraction flow:
+
+```bash
+welfare-inspections render-pages \
+  --source-manifest outputs/download_manifest.jsonl \
+  --page-output-dir outputs/rendered_pages \
+  --diagnostics outputs/page_render_diagnostics.json
+
+welfare-inspections extract-llm \
+  --source-manifest outputs/download_manifest.jsonl \
+  --text-diagnostics outputs/text_extraction_diagnostics.json \
+  --render-diagnostics outputs/page_render_diagnostics.json \
+  --output outputs/llm_metadata_candidates.jsonl \
+  --diagnostics outputs/llm_extraction_diagnostics.json
+
+welfare-inspections reconcile \
+  --metadata outputs/report_metadata.jsonl \
+  --metadata-diagnostics outputs/metadata_parse_diagnostics.json \
+  --llm-candidates outputs/llm_metadata_candidates.jsonl \
+  --output outputs/reconciled_report_metadata.jsonl \
+  --diagnostics outputs/reconciliation_diagnostics.json
+```
+
+LLM extraction is expected in production runs. It should be disabled only for
+offline tests or explicit dry-run/development scenarios. Provider configuration
+failures should fail production extraction before export rather than silently
+publishing deterministic-only rows.
+
+LLM outputs must remain local ignored artifacts until reviewed and reconciled.
+They must record model, prompt/template version, input artifact references,
+source document ID, page evidence, confidence, warnings, and schema validation
+status.
+
+## Weekly Incremental Jobs and Backfills
+
+Weekly incremental jobs:
+
+- discover new or changed Gov.il source documents
+- download/checksum only new or changed PDFs
+- reuse existing deterministic and LLM candidate artifacts when the PDF
+  checksum, schema, renderer, model, prompt, and reconciler versions are
+  unchanged
+- run required LLM extraction for new or changed documents
+- export review artifacts and open a data-repo PR only after validation
+
+Backfill jobs:
+
+- intentionally reprocess historical documents when schema, prompt, model,
+  renderer, deterministic parser, normalization, privacy policy, or
+  reconciliation logic changes
+- are resumable and idempotent
+- compare previous canonical values with new candidates
+- emit before/after diagnostics and change summaries
+- publish only through a data-repo PR
+
+Backfills should not be hidden in weekly jobs. Weekly jobs keep current data
+fresh; backfills improve historical data under explicit versioned changes.
+
 ## Project Management
 
 Use Python 3.11+ or 3.12. Prefer uv-based project management.
@@ -178,8 +254,10 @@ the live Gov.il portal.
 
 Future workflows should include:
 
-- weekly build workflow for discovery/download/parse/build
+- weekly build workflow for discovery/download/parse/render/LLM
+  extraction/reconcile/build
 - artifact upload for inspection before publication
+- explicit backfill workflow for versioned reprocessing
 - publish-to-data-repo workflow that opens a PR into the data repository
 
 Scheduled and publishing workflows should be added only when they are safe,
@@ -187,10 +265,10 @@ credential-aware, and cannot fail solely because live external access is absent.
 
 ## Manual v0 Preview Publication Runbook
 
-The project may do a one-time manual `v0 preview` publication before PR 7 and
-PR 8 automation, but only as a report-metadata-only preview. This runbook is a
-checkpointed plan; do not start live collection or data-repo publication until
-the plan has been reviewed.
+The project may do a one-time manual `v0 preview` publication before weekly and
+publication automation, but only as a report-metadata-first preview. This
+runbook is a checkpointed plan; do not start live collection or data-repo
+publication until the plan has been reviewed.
 
 Step 1: run the local pipeline manually against public Gov.il data.
 
@@ -215,9 +293,14 @@ welfare-inspections parse-metadata \
   --output outputs/report_metadata.jsonl \
   --diagnostics outputs/metadata_parse_diagnostics.json
 
+# Planned required LLM stages once implemented:
+# welfare-inspections render-pages ...
+# welfare-inspections extract-llm ...
+# welfare-inspections reconcile ...
+
 welfare-inspections export \
-  --metadata outputs/report_metadata.jsonl \
-  --metadata-diagnostics outputs/metadata_parse_diagnostics.json \
+  --metadata outputs/reconciled_report_metadata.jsonl \
+  --metadata-diagnostics outputs/reconciliation_diagnostics.json \
   --output-dir outputs/exports
 ```
 
@@ -226,10 +309,12 @@ Step 2: review generated local outputs and diagnostics.
 - Confirm `outputs/exports/reports.jsonl`, `outputs/exports/reports.csv`, and
   `outputs/exports/export_diagnostics.json` exist.
 - Review discovery, download, text extraction, metadata parse, and export
-  diagnostics before publication.
+  diagnostics before publication. Once LLM stages are implemented, also review
+  render, LLM extraction, and reconciliation diagnostics.
 - Stop if required provenance is missing, row validation failures are
   structural, extraction coverage is unexpectedly low, source access appears
-  blocked or incomplete, or any privacy risk is detected.
+  blocked or incomplete, required LLM stages did not run, reconciliation
+  conflicts remain unresolved, or any privacy risk is detected.
 
 Step 3: prepare a data-repo branch for a v0 report-metadata-only preview.
 
@@ -249,8 +334,10 @@ Step 4: open a PR into the data repository.
 Step 5: include publication context.
 
 - Use clear `v0 preview` language.
-- State that outputs are report-level metadata only.
+- State whether outputs are report-level metadata only or include any
+  additional reviewed fields.
 - Include source provenance, run dates, diagnostics summary, caveats, known
-  limitations, CC BY 4.0 target license notice, source attribution to the
-  Ministry of Welfare, and derived-data pipeline attribution.
+- limitations, LLM model/prompt provenance for LLM-derived fields, CC BY 4.0
+  target license notice, source attribution to the Ministry of Welfare, and
+  derived-data pipeline attribution.
 - State that parsed data is unofficial and may contain parsing errors.

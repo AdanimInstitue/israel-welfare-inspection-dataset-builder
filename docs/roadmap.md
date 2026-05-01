@@ -33,22 +33,39 @@ Implement canonical schema validation and export CSV/JSONL outputs locally.
 
 ## Optional Manual v0 Preview Dataset Publication
 
-Before PR 7/PR 8 automation, the project may publish a report-metadata-only
-`v0 preview` manually into the paired data repository. This is not a substitute
-for the planned automated publication flow: it must use a data-repo PR, include
-provenance and caveats, avoid downloaded PDFs and unreviewed large artifacts,
-and stop if local diagnostics show validation, coverage, or privacy concerns.
+Before automation, the project may publish a report-metadata-first `v0 preview`
+manually into the paired data repository. Real PDF inspection showed that
+deterministic embedded-text parsing alone is not publication-quality, so the v0
+preview should wait for required LLM extraction and reconciliation unless it is
+explicitly framed as a source inventory only. Publication must use a data-repo
+PR, include provenance and caveats, avoid downloaded PDFs and unreviewed large
+artifacts, and stop if local diagnostics show validation, coverage, LLM,
+reconciliation, or privacy concerns.
 
-## PR 7: Weekly Workflow and Artifact Upload
+## PR 7: LLM Extraction Contracts and Page Rendering
 
-Add safe scheduled build automation and upload artifacts for review.
+Add PDF page rendering plus required schema-bound text and multimodal LLM
+candidate extraction. Keep CI offline with mocked LLM responses.
 
-## PR 8: Publish PR Flow Into Data Repo
+## PR 8: Candidate Reconciliation and Backfill
+
+Merge deterministic, LLM, OCR if present, and existing canonical candidates into
+validated canonical rows. Add explicit backfill routines for versioned
+historical reprocessing.
+
+## PR 9: Weekly Workflow and Artifact Upload
+
+Add safe scheduled incremental automation and upload artifacts for review. The
+weekly job should process new/changed reports and should not hide historical
+backfills.
+
+## PR 10: Publish PR Flow Into Data Repo
 
 Implement publication automation that opens a PR into the paired data repository
 instead of pushing directly to main.
 
-## PR 9+: Detailed Findings Extraction, OCR Fallback, Quality Dashboards
+## PR 11+: Detailed Findings Extraction, OCR, Quality Dashboards
 
-Expand finding-level extraction, OCR fallback, quality reports, parse warning
-dashboards, and broader fixture coverage.
+Expand finding-level extraction, optional OCR candidate generation, quality
+reports, parse warning dashboards, broader fixture coverage, and model/prompt
+evaluation sets.

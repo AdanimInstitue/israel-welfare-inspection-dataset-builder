@@ -9,6 +9,12 @@ values for analysis while keeping the raw source value. Derived fields are
 computed by the pipeline, such as IDs, checksums, confidence scores, and warning
 records.
 
+V1 also separates extraction candidates from accepted canonical values. A value
+may come from deterministic parsing, embedded-text LLM extraction, multimodal
+LLM extraction, OCR, or reconciliation. Canonical rows should preserve the
+accepted value and enough candidate/provenance references to audit why it was
+accepted.
+
 ## ID Strategy
 
 IDs should be deterministic where possible. Source document IDs should be stable
@@ -54,6 +60,9 @@ Tracks one parsed inspection report.
 | `page_count` | integer/null | derived |
 | `extraction_status` | string | derived |
 | `extraction_confidence` | number/null | derived |
+| `accepted_extraction_methods` | array | derived |
+| `llm_candidate_ids` | array | derived |
+| `reconciliation_status` | string | derived |
 
 PR 5 emits local ignored metadata JSONL with the report provenance fields above
 plus a `fields` object. Each parsed field keeps `raw_value`,
@@ -99,6 +108,63 @@ IDs, malformed date values, and duplicate `report_id` values are recorded in
 5 metadata parse diagnostics sidecar is required so exported rows cannot
 silently lose parse diagnostics.
 
+Future report rows should add field-level accepted method metadata. Until that
+schema is expanded, LLM and reconciliation outputs should be kept in sidecar
+candidate/diagnostic manifests rather than flattening unexplained LLM values
+directly into `reports.csv`.
+
+## `extraction_candidates`
+
+Tracks candidate values produced by deterministic parsers, OCR, or LLM
+extractors before reconciliation.
+
+| Field | Type | Class |
+| --- | --- | --- |
+| `candidate_id` | string | derived |
+| `source_document_id` | string | derived |
+| `report_id` | string/null | derived |
+| `field_name` | string | derived |
+| `raw_value` | string/null | raw |
+| `normalized_value` | string/date/number/null | normalized |
+| `page_number` | integer/null | derived |
+| `raw_excerpt` | string/null | raw |
+| `visual_locator` | object/null | derived |
+| `extraction_method` | string | derived |
+| `extractor_version` | string | derived |
+| `model_name` | string/null | derived |
+| `prompt_id` | string/null | derived |
+| `prompt_version` | string/null | derived |
+| `input_artifact_refs` | array | derived |
+| `confidence` | number/null | derived |
+| `warnings` | array | derived |
+| `created_at` | datetime | derived |
+
+`extraction_method` values should distinguish at least `deterministic`,
+`llm_text`, `llm_multimodal`, `ocr`, and `reconciler_llm`.
+
+## `reconciliation_decisions`
+
+Tracks how candidate values become accepted canonical values.
+
+| Field | Type | Class |
+| --- | --- | --- |
+| `decision_id` | string | derived |
+| `report_id` | string | derived |
+| `field_name` | string | derived |
+| `accepted_candidate_id` | string/null | derived |
+| `candidate_ids` | array | derived |
+| `decision_status` | string | derived |
+| `decision_method` | string | derived |
+| `reason` | string/null | derived |
+| `warnings` | array | derived |
+| `decided_at` | datetime | derived |
+| `schema_version` | string | derived |
+| `reconciler_version` | string | derived |
+
+Decision statuses should include accepted, unresolved, conflict, rejected, and
+needs_review. Publication should avoid silently emitting unresolved conflicts as
+clean canonical values.
+
 ## `inspection_findings`
 
 Tracks individual findings, standards, recommendations, or section-level
@@ -117,6 +183,8 @@ observations.
 | `recommendation_text` | string/null | raw |
 | `page_number` | integer/null | derived |
 | `extraction_confidence` | number/null | derived |
+| `accepted_extraction_methods` | array | derived |
+| `llm_candidate_ids` | array | derived |
 
 ## `parse_warnings`
 
@@ -134,8 +202,9 @@ Tracks row-level and document-level parsing diagnostics.
 
 PR 5 metadata warnings are emitted both on each report metadata row and in the
 metadata parse diagnostics sidecar. Missing deterministic top-level fields,
-malformed dates, unavailable extracted text, and missing text files are warnings
-or per-document diagnostics rather than full-run failures.
+malformed dates, unavailable extracted text, missing text files, LLM provider
+failures, low-confidence LLM candidates, and reconciliation conflicts are
+warnings or per-document diagnostics rather than full-run failures when safe.
 
 ## JSON Schemas
 
