@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AdanimInstitue/israel-welfare-inspection-dataset-builder/schemas/finding_candidate.schema.json",
+  "title": "Finding Extraction Candidate",
+  "description": "Review-only finding-level extraction candidate. These records are not canonical exports or publication inputs.",
+  "type": "object",
+  "required": [
+    "candidate_id",
+    "source_document_id",
+    "finding_text_raw",
+    "extraction_method",
+    "extractor_version",
+    "evidence",
+    "confidence",
+    "validation_status"
+  ],
+  "properties": {
+    "candidate_id": { "type": "string", "minLength": 1 },
+    "source_document_id": { "type": "string", "minLength": 1 },
+    "report_id": { "type": ["string", "null"] },
+    "finding_index": { "type": ["integer", "null"], "minimum": 1 },
+    "finding_type": { "type": ["string", "null"] },
+    "severity": { "type": ["string", "null"] },
+    "finding_text_raw": { "type": "string", "minLength": 1 },
+    "finding_text_normalized": { "type": ["string", "null"] },
+    "recommendation_raw": { "type": ["string", "null"] },
+    "recommendation_normalized": { "type": ["string", "null"] },
+    "legal_refs": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "extraction_method": {
+      "type": "string",
+      "enum": ["llm_text", "llm_multimodal", "ocr", "mock"]
+    },
+    "extractor_version": { "type": "string", "minLength": 1 },
+    "source_pdf_sha256": {
+      "type": ["string", "null"],
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "text_input_sha256": {
+      "type": ["string", "null"],
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "rendered_artifact_ids": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "rendered_artifact_sha256s": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 64,
+        "maxLength": 64
+      }
+    },
+    "prompt_id": { "type": ["string", "null"] },
+    "prompt_version": { "type": ["string", "null"] },
+    "prompt_input_sha256": {
+      "type": ["string", "null"],
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "model_name": { "type": ["string", "null"] },
+    "model_version": { "type": ["string", "null"] },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "page_number": { "type": ["integer", "null"], "minimum": 1 },
+          "raw_excerpt": { "type": ["string", "null"] },
+          "visual_locator": {
+            "type": ["object", "null"],
+            "required": [
+              "rendered_artifact_id",
+              "coordinate_system",
+              "bounding_box"
+            ],
+            "properties": {
+              "rendered_artifact_id": { "type": "string", "minLength": 1 },
+              "coordinate_system": { "type": "string", "minLength": 1 },
+              "bounding_box": {
+                "type": "object",
+                "required": ["x", "y", "width", "height"],
+                "properties": {
+                  "x": { "type": "integer", "minimum": 0 },
+                  "y": { "type": "integer", "minimum": 0 },
+                  "width": { "type": "integer", "exclusiveMinimum": 0 },
+                  "height": { "type": "integer", "exclusiveMinimum": 0 }
+                },
+                "additionalProperties": false
+              },
+              "note": { "type": ["string", "null"] }
+            },
+            "additionalProperties": false
+          }
+        },
+        "anyOf": [
+          { "required": ["raw_excerpt"] },
+          { "required": ["visual_locator"] }
+        ],
+        "additionalProperties": false
+      }
+    },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "validation_status": {
+      "type": "string",
+      "enum": ["valid", "invalid", "needs_review"]
+    },
+    "validation_errors": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "created_at": { "type": "string", "format": "date-time" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "extraction_method": { "const": "llm_text" } },
+        "required": ["extraction_method"]
+      },
+      "then": {
+        "required": [
+          "source_pdf_sha256",
+          "text_input_sha256",
+          "prompt_id",
+          "prompt_version",
+          "prompt_input_sha256"
+        ],
+        "properties": {
+          "source_pdf_sha256": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "text_input_sha256": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "prompt_id": { "type": "string", "minLength": 1 },
+          "prompt_version": { "type": "string", "minLength": 1 },
+          "prompt_input_sha256": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "extraction_method": { "const": "llm_multimodal" } },
+        "required": ["extraction_method"]
+      },
+      "then": {
+        "required": [
+          "source_pdf_sha256",
+          "rendered_artifact_ids",
+          "rendered_artifact_sha256s",
+          "prompt_id",
+          "prompt_version",
+          "prompt_input_sha256"
+        ],
+        "properties": {
+          "source_pdf_sha256": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "rendered_artifact_ids": { "minItems": 1 },
+          "rendered_artifact_sha256s": { "minItems": 1 },
+          "prompt_id": { "type": "string", "minLength": 1 },
+          "prompt_version": { "type": "string", "minLength": 1 },
+          "prompt_input_sha256": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

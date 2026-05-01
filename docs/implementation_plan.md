@@ -292,3 +292,47 @@ Acceptance criteria:
 - Tests use mocked/offline fixtures only and cover publication command
   construction, credential/input gates, artifact guards, builder-repo output
   exclusion, PR/release-note wording, and CLI help.
+
+## PR 11: Finding-Level Extraction Contracts
+
+Tasks:
+
+- Add Pydantic and JSON Schema contracts for finding-level extraction
+  candidates and finding-level diagnostics. Done in `collect.models`,
+  `collect.findings`, `schemas/finding_candidate.schema.json`,
+  `schemas/finding_extraction_diagnostics.schema.json`, and the expanded
+  `schemas/inspection.schema.json`.
+- Add an inert/manual `welfare-inspections extract-findings` command. Done with
+  default `dry-run`, explicit `mock`, and fail-closed `production` modes.
+- Read existing local artifacts where appropriate: download/source manifests,
+  text extraction diagnostics, rendered page manifests, and optional mock
+  finding responses. Done without network access or live providers.
+- Write ignored review sidecars: `outputs/finding_candidates.jsonl` and
+  `outputs/finding_extraction_diagnostics.json`.
+- Preserve source provenance, page evidence, raw excerpts or visual locators,
+  model/prompt metadata where applicable, immutable input hashes where
+  available, confidence, warnings, and validation status. Done for valid
+  candidate rows; malformed payloads become diagnostics.
+- Keep findings as candidates/review artifacts only. Done: PR 11 does not feed
+  finding candidates into canonical exports, publication inputs, reconciliation
+  acceptance, or the paired data repository.
+
+Acceptance criteria:
+
+- Tests use mocked/offline fixtures only.
+- Valid mock finding candidates are emitted with provenance and evidence.
+- Malformed candidate payloads become diagnostics and are not emitted as valid
+  rows.
+- Missing required provenance/evidence fails validation or produces record
+  diagnostics.
+- Dry-run writes empty candidate sidecars and review diagnostics.
+- Production/live-provider mode fails closed until explicitly supported later.
+- Output path guards keep generated sidecars under ignored local outputs when
+  writing inside the builder repository.
+- CLI/help behavior covers `extract-findings`.
+
+Out of scope for PR 11:
+
+- OCR, live LLM/provider calls, dashboards, canonical finding exports,
+  publication of finding rows, scheduled workflows, and real network-dependent
+  tests remain later PR 12+ work.

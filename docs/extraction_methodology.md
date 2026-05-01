@@ -89,6 +89,29 @@ PR 7 adds the candidate contract and CLI plumbing but not live provider calls.
 mock responses, and `--mode production` fails closed when provider settings are
 missing. Candidate manifests remain sidecar artifacts for reconciliation.
 
+## Finding-Level Review Contracts
+
+PR 11 adds the first finding-level contract slice. `extract-findings` reads
+local source/download manifests, optional embedded-text diagnostics, optional
+rendered page manifests, and optional local mock finding responses. It writes
+review-only sidecars:
+
+- `outputs/finding_candidates.jsonl`
+- `outputs/finding_extraction_diagnostics.json`
+
+Finding candidates must preserve source document ID, source PDF hash when
+available, finding text, optional recommendation/legal references, page
+evidence, raw excerpt or visual locator, prompt/model metadata where
+applicable, immutable prompt/text/rendered-artifact hashes where applicable,
+confidence, warnings, and validation status. Missing evidence or required LLM
+provenance fails validation. Malformed mock/provider payloads are diagnostics
+and are not emitted as valid rows.
+
+PR 11 keeps findings out of canonical exports, reconciliation acceptance,
+publication plans, and paired data-repo inputs. OCR, live provider calls,
+dashboards, publication of finding rows, and scheduled extraction workflows
+remain later work.
+
 ## Reconciliation
 
 The reconciler compares candidate values from deterministic parsing,

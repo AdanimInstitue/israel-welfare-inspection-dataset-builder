@@ -10,6 +10,10 @@ from rich.console import Console
 
 from welfare_inspections import __version__
 from welfare_inspections.collect.export import export_reports_from_metadata
+from welfare_inspections.collect.findings import (
+    UnsupportedFindingProductionMode,
+    extract_finding_candidates,
+)
 from welfare_inspections.collect.llm_extract import extract_llm_candidates
 from welfare_inspections.collect.metadata_parser import (
     parse_metadata_from_text_diagnostics,
@@ -416,6 +420,82 @@ def extract_llm(
     console.print(
         f"Processed {run_diagnostics.total_records} source records; "
         f"candidates={len(candidates)}; "
+        f"failed={run_diagnostics.failed_records}; "
+        f"warnings={run_diagnostics.warning_records}"
+    )
+
+
+@app.command("extract-findings")
+def extract_findings(
+    source_manifest: Annotated[
+        Path,
+        typer.Option(
+            "--source-manifest",
+            help="Path to a local download/source manifest JSONL.",
+        ),
+    ] = Path("outputs/download_manifest.jsonl"),
+    text_diagnostics: Annotated[
+        Path | None,
+        typer.Option(
+            "--text-diagnostics",
+            help="Optional embedded text diagnostics JSON sidecar.",
+        ),
+    ] = Path("outputs/text_extraction_diagnostics.json"),
+    render_manifest: Annotated[
+        Path | None,
+        typer.Option(
+            "--render-manifest",
+            help="Optional rendered page artifact manifest JSONL.",
+        ),
+    ] = Path("outputs/rendered_pages_manifest.jsonl"),
+    output: Annotated[
+        Path,
+        typer.Option(
+            "--output",
+            help="Path for ignored finding candidate JSONL sidecar.",
+        ),
+    ] = Path("outputs/finding_candidates.jsonl"),
+    diagnostics: Annotated[
+        Path,
+        typer.Option(
+            "--diagnostics",
+            help="Path for finding extraction diagnostics JSON sidecar.",
+        ),
+    ] = Path("outputs/finding_extraction_diagnostics.json"),
+    mode: Annotated[
+        str,
+        typer.Option(
+            "--mode",
+            help="Finding extraction mode: dry-run, mock, or production.",
+        ),
+    ] = "dry-run",
+    mock_response_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--mock-response-path",
+            help="JSONL mock finding responses for offline extraction.",
+        ),
+    ] = None,
+) -> None:
+    """Create review-only finding extraction sidecars from offline inputs."""
+    try:
+        candidates, run_diagnostics = extract_finding_candidates(
+            source_manifest_path=source_manifest,
+            text_diagnostics_path=text_diagnostics,
+            render_manifest_path=render_manifest,
+            output_path=output,
+            diagnostics_path=diagnostics,
+            mode=mode,
+            mock_response_path=mock_response_path,
+        )
+    except UnsupportedFindingProductionMode as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(code=2) from exc
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc), param_hint="--mode") from exc
+    console.print(
+        f"Processed {run_diagnostics.total_records} source records; "
+        f"finding_candidates={len(candidates)}; "
         f"failed={run_diagnostics.failed_records}; "
         f"warnings={run_diagnostics.warning_records}"
     )

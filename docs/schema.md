@@ -276,10 +276,55 @@ reconciliation, or backfill schemas. Production publication planning must fail
 closed unless required reviewed inputs, quality gates, explicit approval, and
 credentials are present.
 
+## `finding_extraction_candidates`
+
+PR 11 adds review-only finding-level candidate sidecars. These records capture
+individual findings, recommendations, legal references, and evidence before any
+canonical finding export exists.
+
+| Field | Type | Class |
+| --- | --- | --- |
+| `candidate_id` | string | derived |
+| `source_document_id` | string | derived |
+| `report_id` | string/null | derived |
+| `finding_index` | integer/null | derived |
+| `finding_type` | string/null | normalized |
+| `severity` | string/null | normalized |
+| `finding_text_raw` | string | raw |
+| `finding_text_normalized` | string/null | normalized |
+| `recommendation_raw` | string/null | raw |
+| `recommendation_normalized` | string/null | normalized |
+| `legal_refs` | array | raw/normalized |
+| `extraction_method` | string | derived |
+| `source_pdf_sha256` | string/null | derived |
+| `text_input_sha256` | string/null | derived |
+| `rendered_artifact_ids` | array | derived |
+| `rendered_artifact_sha256s` | array | derived |
+| `prompt_id` | string/null | derived |
+| `prompt_version` | string/null | derived |
+| `prompt_input_sha256` | string/null | derived |
+| `model_name` | string/null | derived |
+| `model_version` | string/null | derived |
+| `evidence` | array | raw/derived |
+| `confidence` | number | derived |
+| `warnings` | array | derived |
+| `validation_status` | string | derived |
+
+Each evidence item must include a raw excerpt or visual locator. LLM finding
+candidates must include source PDF hash, prompt identity, prompt input hash, and
+the relevant text or rendered artifact hashes. Invalid mock/provider payloads
+are recorded in `finding_extraction_diagnostics.json`, not emitted as valid
+candidate rows.
+
+PR 11 sidecars are not canonical data. They do not change `reports.csv`,
+`reports.jsonl`, publication plans, or paired data-repo inputs.
+
 ## `inspection_findings`
 
-Tracks individual findings, standards, recommendations, or section-level
-observations.
+Future canonical export surface for individual findings, standards,
+recommendations, or section-level observations. PR 11 expands the placeholder
+schema enough to document review candidates, but canonical finding rows are not
+published yet.
 
 | Field | Type | Class |
 | --- | --- | --- |
@@ -320,8 +365,8 @@ warnings or per-document diagnostics rather than full-run failures when safe.
 ## JSON Schemas
 
 `schemas/report.schema.json` defines the PR 6 canonical report-level local
-export row. Facility, inspection finding, and datapackage schemas remain
-minimal placeholders until those export surfaces are implemented.
+export row. Facility and datapackage schemas remain minimal placeholders until
+those export surfaces are implemented.
 
 PR 7 adds sidecar schema contracts:
 
@@ -339,3 +384,14 @@ privacy review, and publication gates.
 PR 8 schemas also describe intermediate local artifacts. Reconciled metadata is
 not published from the builder repository and backfill diagnostics do not
 overwrite existing canonical values.
+
+PR 11 adds finding-level review schemas:
+
+- `schemas/finding_candidate.schema.json` for finding candidate rows.
+- `schemas/finding_extraction_diagnostics.schema.json` for per-run and
+  per-document finding extraction diagnostics.
+- `schemas/inspection.schema.json` as the current inspection/finding review
+  contract placeholder.
+
+These schemas do not authorize canonical finding publication. OCR, dashboards,
+finding-row publication, and live provider extraction remain later work.

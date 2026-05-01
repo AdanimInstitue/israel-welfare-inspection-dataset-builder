@@ -19,6 +19,7 @@ src/
       reconcile.py          offline reconciliation and dry-run backfill plumbing
       weekly.py             weekly dry-run review-artifact plan contracts
       export.py             manual schema validation and local report exports
+      findings.py           offline finding-level candidate/review contracts
       manifest.py           source JSONL and diagnostics readers/writers
       models.py             Pydantic source discovery contracts
       pdf_download.py       manual PDF download/checksum manifest layer
@@ -36,6 +37,8 @@ schemas/
   llm_extraction_candidate.schema.json PR 7 LLM candidate contract
   llm_evaluation_report.schema.json    PR 7 offline evaluation report contract
   extraction_candidate.schema.json     PR 8 common candidate compatibility contract
+  finding_candidate.schema.json        PR 11 finding candidate contract
+  finding_extraction_diagnostics.schema.json PR 11 finding diagnostics contract
   reconciliation_decision.schema.json  PR 8 field decision contract
   reconciliation_diagnostics.schema.json PR 8 reconciliation diagnostics contract
   reconciled_report_metadata.schema.json PR 8 reconciled metadata contract
@@ -57,6 +60,7 @@ tests/
   test_source_discovery.py mocked discovery/parser/manifest tests
   test_metadata_parser.py synthetic top-level metadata parser tests
   test_export.py      synthetic schema validation/local export tests
+  test_findings.py    synthetic finding candidate/review plumbing tests
 
 docs/
   architecture.md
@@ -107,6 +111,10 @@ data_samples/
   `schemas/reconciliation_diagnostics.schema.json`,
   `schemas/reconciled_report_metadata.schema.json`, and
   `schemas/backfill_diagnostics.schema.json`
+- Current finding-level review contracts:
+  `schemas/finding_candidate.schema.json`,
+  `schemas/finding_extraction_diagnostics.schema.json`, and
+  `schemas/inspection.schema.json`
 - Manual v0 preview publication plan:
   `docs/implementation_plan.md`, `docs/operations.md`,
   `docs/privacy_and_publication_policy.md`, and `docs/data_quality.md`
@@ -140,6 +148,9 @@ LLM planning constraints:
 - data-repo publication is planned by `publish-plan`, remains PR-based, and
   fails closed before production actions unless reviewed inputs, clear gates,
   explicit approval, and credentials are present
+- finding-level extraction is currently PR 11 review plumbing only:
+  `extract-findings` supports dry-run/mock local fixtures, writes ignored
+  sidecars, and does not feed canonical exports or publication inputs
 
 ## Automation
 

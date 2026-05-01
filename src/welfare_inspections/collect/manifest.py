@@ -11,6 +11,8 @@ from welfare_inspections.collect.models import (
     DiscoveryRunDiagnostics,
     DownloadRunDiagnostics,
     ExportRunDiagnostics,
+    FindingExtractionCandidate,
+    FindingExtractionRunDiagnostics,
     LLMEvaluationReport,
     LLMExtractionCandidate,
     LLMExtractionRunDiagnostics,
@@ -115,6 +117,30 @@ def write_llm_candidate_manifest(
     _atomic_write_text(path, "\n".join(lines) + ("\n" if lines else ""))
 
 
+def read_finding_candidate_manifest(
+    path: Path,
+) -> list[FindingExtractionCandidate]:
+    records: list[FindingExtractionCandidate] = []
+    lines = path.read_text(encoding="utf-8").splitlines()
+    for line_number, line in enumerate(lines, 1):
+        if not line.strip():
+            continue
+        try:
+            records.append(FindingExtractionCandidate.model_validate_json(line))
+        except ValueError as exc:
+            msg = f"Invalid finding candidate JSONL at {path}:{line_number}"
+            raise ValueError(msg) from exc
+    return records
+
+
+def write_finding_candidate_manifest(
+    path: Path,
+    records: list[FindingExtractionCandidate],
+) -> None:
+    lines = [record.model_dump_json() for record in records]
+    _atomic_write_text(path, "\n".join(lines) + ("\n" if lines else ""))
+
+
 def write_reconciled_metadata_manifest(
     path: Path,
     records: list[ReconciledReportMetadata],
@@ -185,6 +211,13 @@ def write_llm_extraction_diagnostics(
 
 def write_llm_evaluation_report(path: Path, report: LLMEvaluationReport) -> None:
     _write_model_json(path, report)
+
+
+def write_finding_extraction_diagnostics(
+    path: Path,
+    diagnostics: FindingExtractionRunDiagnostics,
+) -> None:
+    _write_model_json(path, diagnostics)
 
 
 def write_reconciliation_diagnostics(
