@@ -200,6 +200,15 @@ def test_extraction_candidate_requires_method_specific_llm_identity() -> None:
     with pytest.raises(ValidationError, match="rendered_artifact_ids"):
         ExtractionCandidate.model_validate(multimodal)
 
+    missing_render_hash = _extraction_candidate_payload(
+        extraction_method="llm_multimodal",
+    )
+    missing_render_hash["text_input_sha256"] = None
+    missing_render_hash["rendered_artifact_sha256s"] = []
+
+    with pytest.raises(ValidationError, match="rendered_artifact_sha256s"):
+        ExtractionCandidate.model_validate(missing_render_hash)
+
     mismatched = _extraction_candidate_payload(
         extraction_method="llm_multimodal",
     )
@@ -324,6 +333,55 @@ def test_reconcile_records_duplicate_decision_ids_for_duplicate_reports(
     assert diagnostics.reconciled_records == 1
     assert diagnostics.duplicate_decision_id_records == len(second.fields)
     assert diagnostics.record_diagnostics[-1].status == "duplicate_report_id"
+
+
+def test_reconcile_records_duplicate_decision_ids_within_report(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    record = _metadata_record("source-doc-dup-decision", "report-dup-decision")
+
+    def duplicate_decision_for_field(
+        *,
+        metadata_record: ReportMetadataRecord,
+        field_name: str,
+        candidates: list[ExtractionCandidate],
+        schema_version: str,
+        reconciler_version: str,
+    ) -> ReconciliationDecision:
+        return ReconciliationDecision(
+            decision_id=f"reconciliation:{metadata_record.report_id}:duplicate",
+            report_id=metadata_record.report_id,
+            source_document_id=metadata_record.source_document_id,
+            field_name=field_name,
+            candidate_ids=[candidates[0].candidate_id],
+            accepted_candidate_id=candidates[0].candidate_id,
+            decision_status="accepted",
+            decision_method="deterministic_only",
+            reason="Synthetic duplicate decision ID.",
+            schema_version=schema_version,
+            reconciler_version=reconciler_version,
+        )
+
+    monkeypatch.setattr(
+        reconcile_module,
+        "_decision_for_field",
+        duplicate_decision_for_field,
+    )
+
+    reconciled, diagnostics = reconcile_report_metadata(
+        metadata_path=_write_metadata(tmp_path, [record]),
+        metadata_diagnostics_path=_write_metadata_diagnostics(tmp_path),
+        output_path=tmp_path / "reconciled.jsonl",
+        diagnostics_path=tmp_path / "reconciliation.json",
+    )
+
+    assert diagnostics.duplicate_decision_id_records == 1
+    assert len(reconciled[0].decisions) == 1
+    assert any(
+        "Duplicate decision_id" in error
+        for error in diagnostics.record_diagnostics[0].errors
+    )
 
 
 def test_reconcile_records_malformed_metadata_rows_as_diagnostics(
