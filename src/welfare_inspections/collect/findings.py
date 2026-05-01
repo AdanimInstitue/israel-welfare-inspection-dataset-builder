@@ -249,10 +249,17 @@ def _candidate_from_provider_payload(
             artifact.rendered_artifact_id for artifact in rendered_artifacts
         ]
         rendered_hashes = [artifact.image_sha256 for artifact in rendered_artifacts]
-    finding_text = str(payload.get("finding_text_raw") or payload.get("finding_text"))
-    if finding_text == "None":
-        finding_text = ""
+    raw_finding_text = payload.get("finding_text_raw") or payload.get("finding_text")
+    finding_text = str(raw_finding_text) if raw_finding_text else ""
     finding_index = payload.get("finding_index", fallback_index)
+    report_id = payload.get("report_id")
+    finding_type = payload.get("finding_type")
+    severity = payload.get("severity")
+    finding_text_normalized = payload.get("finding_text_normalized")
+    recommendation_raw = payload.get("recommendation_raw")
+    recommendation_normalized = payload.get("recommendation_normalized")
+    legal_refs_raw = payload.get("legal_refs", [])
+    warnings_raw = payload.get("warnings", [])
     return FindingExtractionCandidate(
         candidate_id=_candidate_id(
             record=record,
@@ -261,32 +268,22 @@ def _candidate_from_provider_payload(
             prompt_input_sha256=prompt_input_sha256,
         ),
         source_document_id=record.source_document_id,
-        report_id=payload.get("report_id")
-        if isinstance(payload.get("report_id"), str)
-        else None,
+        report_id=report_id if isinstance(report_id, str) else None,
         finding_index=finding_index if isinstance(finding_index, int) else None,
-        finding_type=payload.get("finding_type")
-        if isinstance(payload.get("finding_type"), str)
-        else None,
-        severity=payload.get("severity")
-        if isinstance(payload.get("severity"), str)
-        else None,
+        finding_type=finding_type if isinstance(finding_type, str) else None,
+        severity=severity if isinstance(severity, str) else None,
         finding_text_raw=finding_text,
-        finding_text_normalized=payload.get("finding_text_normalized")
-        if isinstance(payload.get("finding_text_normalized"), str)
+        finding_text_normalized=finding_text_normalized
+        if isinstance(finding_text_normalized, str)
         else None,
-        recommendation_raw=payload.get("recommendation_raw")
-        if isinstance(payload.get("recommendation_raw"), str)
+        recommendation_raw=recommendation_raw
+        if isinstance(recommendation_raw, str)
         else None,
-        recommendation_normalized=payload.get("recommendation_normalized")
-        if isinstance(payload.get("recommendation_normalized"), str)
+        recommendation_normalized=recommendation_normalized
+        if isinstance(recommendation_normalized, str)
         else None,
-        legal_refs=[
-            str(ref)
-            for ref in payload.get("legal_refs", [])
-            if isinstance(ref, str)
-        ]
-        if isinstance(payload.get("legal_refs", []), list)
+        legal_refs=[str(ref) for ref in legal_refs_raw if isinstance(ref, str)]
+        if isinstance(legal_refs_raw, list)
         else [],
         extraction_method=extraction_method,
         extractor_version=SCHEMA_VERSION,
@@ -301,12 +298,8 @@ def _candidate_from_provider_payload(
         model_version=provider.model_version,
         evidence=evidence,
         confidence=float(payload.get("confidence", 0.0)),
-        warnings=[
-            str(warning)
-            for warning in payload.get("warnings", [])
-            if isinstance(warning, str)
-        ]
-        if isinstance(payload.get("warnings", []), list)
+        warnings=[str(w) for w in warnings_raw if isinstance(w, str)]
+        if isinstance(warnings_raw, list)
         else [],
         validation_status=str(payload.get("validation_status") or "valid"),
     )
