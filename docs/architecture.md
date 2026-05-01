@@ -54,22 +54,61 @@ Generated dataset artifacts must not be committed to the builder repository.
 1. Discover newly published PDF reports from the Gov.il portal.
 2. Download PDFs and record checksums.
 3. Extract embedded text and document metadata.
-4. Apply OCR only where embedded text is missing or poor.
-5. Parse top-level report metadata and detailed findings.
-6. Normalize Hebrew text, dates, facility names, facility types, districts,
+4. Render PDF pages/images for multimodal extraction.
+5. Run LLM-based extraction for every report, using embedded text, rendered
+   pages, and source provenance as inputs.
+6. Parse deterministic top-level report metadata and detailed findings where
+   reliable rules exist.
+7. Reconcile deterministic and LLM-derived candidates into canonical rows.
+8. Run LLM evaluation and quality gates against reviewed fixtures and active
+   release thresholds.
+9. Normalize Hebrew text, dates, facility names, facility types, districts,
    administrations, visit types, and inspection fields.
-7. Validate canonical schemas.
-8. Export CSV, JSON, JSONL, and Parquet outputs.
-9. Preserve raw provenance, parse diagnostics, and quality warnings.
-10. Open a PR into the paired data repository for publication.
+10. Validate canonical schemas.
+11. Export CSV, JSON, JSONL, and Parquet outputs.
+12. Preserve raw provenance, model diagnostics, parse diagnostics, and quality
+    warnings.
+13. Open a PR into the paired data repository for publication.
 
-## Deterministic-First Parsing
+## Extraction Strategy
 
-The v1 pipeline should start with deterministic, auditable extraction. PyMuPDF
-is the default embedded-text extraction layer, pdfplumber supports layout and
-table debugging, and pypdf supports metadata/page structural checks. OCR with
-OCRmyPDF/Tesseract is a fallback, not the default. Opaque LLM extraction is out
-of scope for v1 because each field needs source traceability.
+The real Ministry PDF reports are not reliably parseable from embedded text
+alone. The Ministry is aware of the issue, but source PDF structure is not
+expected to change soon enough for the dataset roadmap. V1 therefore requires
+both deterministic extraction and LLM-based extraction as normal production
+inputs.
+
+Deterministic layers remain important for page counts, checksums, embedded text,
+stable IDs, simple field extraction, and cheap regression signals. PyMuPDF is
+the embedded-text extraction layer, pdfplumber supports layout/table debugging,
+and pypdf supports metadata/page structural checks.
+
+The LLM layer is not a loose fallback. It is a required extraction stage that
+should use both embedded text and rendered PDF pages, return strict JSON, and
+preserve evidence for each value. Each LLM extraction result must record model
+name, prompt/template version, immutable input hashes, source document ID, page
+number, evidence text or visual locator, confidence, warnings, and validation
+status. Rendered page artifacts need a versioned render profile, image checksums,
+and a stable coordinate system so visual locators remain reproducible.
+
+Canonical rows are produced by a reconciliation layer. The reconciler compares
+deterministic candidates, embedded-text LLM candidates, multimodal LLM
+candidates, and existing canonical values during backfills. It accepts values
+only when they pass schema validation and provenance requirements; conflicts are
+preserved as diagnostics instead of silently overwritten. Material conflicts stay
+`needs_review` unless deterministic rules or explicit agreement thresholds
+resolve them; a reconciler LLM may propose, but must not be the only authority
+for accepting a disputed value.
+
+LLM quality is measured separately from mocked provider tests. Release planning
+requires an evaluation report with field-level coverage, correctness, and
+regressions for the active schema, model, prompt, renderer, and reconciler
+versions before publication.
+
+OCR remains optional infrastructure for future quality improvement, but it is
+not the main answer to the current PDF issue. When OCR is used, it should be
+treated as another candidate source and reconciled with the same provenance and
+validation rules.
 
 ## Provenance and Quality Model
 
@@ -79,8 +118,26 @@ diagnostics where relevant, PDF SHA-256, local storage path, and collector
 version.
 
 Every parsed row should retain enough context to audit it back to a source
-document, page, raw excerpt, extraction method, confidence score, and parse
-warning status.
+document, page, raw excerpt or visual locator, extraction method, model/prompt
+version where applicable, input artifact hashes, confidence score, and warning
+status.
+
+## Weekly Incremental Jobs vs. Backfill Jobs
+
+The project needs two distinct operating modes:
+
+- Weekly incremental jobs discover and process only new or changed Gov.il
+  reports. They should avoid re-running expensive LLM extraction for unchanged
+  source document checksums and should open reviewable artifact or data-repo
+  PRs.
+- Backfill jobs intentionally reprocess historical documents when extraction
+  prompts, schemas, models, renderers, normalization rules, or reconciliation
+  logic change. Backfills must be idempotent, versioned, resumable, and able to
+  compare old and new canonical values before publication.
+
+Both modes should produce diagnostics and review artifacts before data-repo
+publication, including LLM evaluation reports when LLM-derived fields are in
+scope. Backfills should not be hidden inside weekly jobs.
 
 ## Intended Builder Layout
 
@@ -115,7 +172,10 @@ israel-welfare-inspection-dataset-builder/
       parse/
         __init__.py
         pdf_text.py
+        pdf_render.py
         ocr.py
+        llm_extract.py
+        reconcile.py
         sections.py
         fields.py
         tables.py
@@ -133,6 +193,10 @@ israel-welfare-inspection-dataset-builder/
         build.py
         export.py
         datapackage.py
+      workflows/
+        __init__.py
+        incremental.py
+        backfill.py
       publish/
         __init__.py
         github_data_repo.py

@@ -7,7 +7,11 @@ Welfare and the Taub Institute.
 
 The project goal is to build a reproducible Python ETL pipeline that converts
 publicly published government PDF inspection and supervision reports into an
-open-access research dataset.
+open-access research dataset. Real source PDFs are not reliably parseable from
+embedded text alone, so the planned production pipeline combines deterministic
+extraction, multimodal LLM extraction, reproducible rendered-page artifacts,
+candidate reconciliation, LLM quality evaluation, validation, and PR-based
+publication.
 
 Canonical source portal:
 https://www.gov.il/he/departments/dynamiccollectors/molsa-supervision-frames-reports?skip=0
@@ -24,10 +28,12 @@ Generated dataset artifacts belong in the paired data repository, not here.
 
 ## Current Status
 
-PR 1 establishes project design, specification, agent instructions, repository
-conventions, a minimal Python package skeleton, placeholder schemas, tests, and
-CI. It intentionally does not implement live Gov.il collection, browser
-automation, PDF parsing, OCR, dataset publication, or generated artifacts.
+The builder currently supports manual discovery, download, embedded-text
+extraction, deterministic metadata parsing, schema validation, and local
+report-level exports. Planning now treats LLM-based extraction and
+reconciliation as required production stages before meaningful dataset
+publication. LLM-derived values must carry immutable input provenance and pass
+evaluation, reconciliation, schema, and privacy gates before publication.
 
 ## Documentation
 

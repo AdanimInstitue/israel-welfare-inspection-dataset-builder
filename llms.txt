@@ -68,11 +68,38 @@ data_samples/
 - Canonical source URL and pagination notes: `docs/source_site_notes.md`
 - Canonical entity model: `docs/schema.md`
 - Deterministic-first parsing strategy: `docs/extraction_methodology.md`
+- Required LLM/multimodal extraction and reconciliation plan:
+  `docs/extraction_methodology.md`, `docs/architecture.md`,
+  `docs/implementation_plan.md`, and `docs/roadmap.md`
 - Fixture policy and quality model: `docs/data_quality.md`
 - Privacy, disclaimer, and CC BY 4.0 publication policy:
   `docs/privacy_and_publication_policy.md`
 - Immediate roadmap: `docs/roadmap.md` and `docs/implementation_plan.md`
 - Current local report export contract: `schemas/report.schema.json`
+- Manual v0 preview publication plan:
+  `docs/implementation_plan.md`, `docs/operations.md`,
+  `docs/privacy_and_publication_policy.md`, and `docs/data_quality.md`
+
+## Current Planning Direction
+
+Real PDF inspection showed that deterministic embedded-text metadata parsing is
+not sufficient for publication. The planned production pipeline now requires
+deterministic extraction, rendered page artifacts, embedded-text LLM extraction,
+multimodal LLM extraction, candidate reconciliation, validation, and PR-based
+publication. Weekly jobs process new/changed documents; backfill jobs reprocess
+history when schemas, prompts, models, renderers, parsers, normalization, or
+reconciliation rules change.
+
+LLM planning constraints:
+
+- rendered page artifacts need immutable hashes and a versioned render profile
+- LLM candidates need immutable source PDF, text, image/crop, and prompt input
+  hashes
+- mocked provider tests are not a quality gate
+- publication needs an LLM evaluation report with field-level coverage,
+  correctness, and regression results
+- material reconciliation conflicts stay `needs_review` unless deterministic
+  rules or explicit agreement thresholds resolve them
 
 ## Automation
 
