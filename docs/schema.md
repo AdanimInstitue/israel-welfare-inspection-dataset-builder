@@ -259,6 +259,23 @@ These sidecars are workflow contracts only. They are ignored local artifacts,
 not exported canonical data, and they do not change the `reports`,
 `source_documents`, `extraction_candidates`, or reconciliation schemas.
 
+## `publication_plan` and Data-Repo PR Sidecars
+
+PR 10 adds publication planning sidecars rather than canonical dataset rows.
+`publication_plan.json` records reviewed input artifact paths, publication
+gates, blockers, the paired data repository target, a non-`main` publication
+branch, planned data-repo files, excluded artifact classes, command plans, and
+paths to generated PR text. `publication_diagnostics.json` records the same
+gate and blocker summary for review. `data_repo_pr_body.md` and
+`release_notes.md` are proposed human-review text for the paired data-repo PR.
+
+These sidecars are ignored local artifacts. They do not publish data, do not
+copy generated datasets into the builder repository, and do not change the
+canonical `reports`, `source_documents`, `extraction_candidates`,
+reconciliation, or backfill schemas. Production publication planning must fail
+closed unless required reviewed inputs, quality gates, explicit approval, and
+credentials are present.
+
 ## `inspection_findings`
 
 Tracks individual findings, standards, recommendations, or section-level

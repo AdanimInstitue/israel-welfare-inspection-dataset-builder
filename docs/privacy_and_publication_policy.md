@@ -56,6 +56,16 @@ explicit source/download/render manifests, diagnostics, LLM evaluation reports,
 reconciliation diagnostics, dry-run backfill summaries, and run summaries
 needed for review. The workflow does not publish data to the paired repository.
 
+PR 10 publication planning keeps the same boundary for actual publication.
+`publish-plan` prepares a data-repo PR body, release notes, and diagnostics
+summary that state the Ministry PDFs are official source documents and the
+parsed dataset is unofficial derived data. It excludes downloaded PDFs,
+rendered page images, prompt payloads, raw LLM responses, unreviewed large
+artifacts, finding-level rows, and suspected sensitive personal data from the
+planned data-repo file set. Production planning fails closed unless reviewed
+inputs, explicit human approval, clear quality gates, and GitHub credentials
+are present.
+
 ## Data Repository Placeholders
 
 The paired data repository should eventually include `NOTICE.md`,
@@ -83,3 +93,8 @@ The preview PR should include:
 Do not publish downloaded PDFs, unreviewed large artifacts, finding-level rows,
 or any suspected personal/sensitive data in the v0 preview. LLM-derived fields
 must be clearly marked through provenance and reconciliation metadata.
+
+The PR 10 planner may prepare report-level publication PR metadata and command
+plans, but it does not authorize automatic publication. Human reviewers must
+inspect the generated PR text, release notes, diagnostics, and intended
+data-repo file set before any paired data-repo PR is opened.

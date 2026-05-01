@@ -8,9 +8,10 @@ diagnostics. PR 6 adds a manual schema validation and local export layer that
 reads PR 5 metadata JSONL and diagnostics. PR 7 adds manual page rendering,
 schema-bound LLM candidate plumbing, and offline evaluation reporting. PR 8 adds
 manual candidate reconciliation and diagnostics-first dry-run backfill
-plumbing. PR 9 adds weekly review-artifact planning and GitHub Actions plumbing.
-These commands are inert by default and write ignored local outputs. CI remains
-offline and uses mocked or synthetic inputs only.
+plumbing. PR 9 adds weekly review-artifact planning and GitHub Actions
+plumbing. PR 10 adds gated publication PR planning for the paired data
+repository. These commands are inert by default and write ignored local outputs.
+CI remains offline and uses mocked or synthetic inputs only.
 
 Real PDF inspection showed that embedded-text parsing alone is not sufficient
 for useful publication. The production pipeline therefore needs required
@@ -33,6 +34,7 @@ Current manual commands:
 - `welfare-inspections reconcile`
 - `welfare-inspections backfill`
 - `welfare-inspections weekly-plan`
+- `welfare-inspections publish-plan`
 - `welfare-inspections export`
 
 Planned future commands:
@@ -59,6 +61,8 @@ Expected behavior:
   renderer, parser, or reconciliation versions change.
 - `weekly-plan` writes a safe dry-run review-artifact plan, run summary, and
   artifact manifest for scheduled/manual review-artifact workflows.
+- `publish-plan` writes a gated publication plan, diagnostics, proposed
+  data-repo PR body, and release notes without touching the paired data repo.
 - `export` validates parsed report metadata and emits local CSV/JSONL outputs.
 - `build` will later chain broader dataset outputs into a local output
   directory.
@@ -250,6 +254,46 @@ render profile, and reconciler version. PR 9 does not enforce cache reuse or
 classify documents as new, changed, or unchanged; those behaviors remain future
 work. Production weekly mode is blocked until live LLM provider calls and real
 incremental reuse exist, so scheduled/manual review runs stay in dry-run mode.
+
+Current PR 10 publication plan command:
+
+```bash
+welfare-inspections publish-plan \
+  --reviewed-artifact-dir outputs/weekly \
+  --output-dir outputs/publication \
+  --release-id YYYY-MM-DD \
+  --approved-for-publication
+```
+
+The command writes `publication_plan.json`, `publication_diagnostics.json`,
+`data_repo_pr_body.md`, and `release_notes.md` under ignored local outputs. It
+does not push, open a PR, copy data-repo files, or connect publication to the
+weekly workflow. Dry-run mode records blockers and planned commands for review
+without requiring credentials. Production mode fails closed before any real
+data-repo PR action unless reviewed input artifacts are present, explicit human
+approval is provided, export/reconciliation/backfill diagnostics are clear, the
+LLM evaluation report is present and passes release thresholds, and GitHub
+credentials are configured.
+
+Reviewed inputs currently expected under `--reviewed-artifact-dir`:
+
+- `exports/reports.jsonl`
+- `exports/reports.csv`
+- `exports/export_diagnostics.json`
+- `source_manifest.jsonl`
+- `reconciliation_diagnostics.json`
+- `llm_eval_report.json`
+- `backfill_diagnostics.json`
+
+The planned paired data-repo PR targets
+`AdanimInstitue/israel-welfare-inspection-dataset` and uses a separate
+publication branch such as `codex/data-publication-YYYY-MM-DD`. It never plans
+to push directly to `main`. The generated PR body and release notes distinguish
+official Ministry source documents from unofficial derived parsed data, include
+diagnostics and LLM/model/prompt metadata where available, and exclude
+downloaded PDFs, rendered page images, prompt payloads, raw LLM responses,
+candidate payload manifests, finding-level rows, suspected sensitive personal
+data, and generated publication artifacts in this builder repository.
 
 ## Weekly Incremental Jobs and Backfills
 

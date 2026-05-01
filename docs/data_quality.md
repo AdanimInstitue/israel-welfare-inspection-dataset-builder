@@ -139,6 +139,23 @@ diagnostics, LLM evaluation reports, source/download/render diagnostics, and a
 dry-run backfill summary without publishing. A successful artifact upload is
 not a publication approval; it is review input for the later data-repo PR flow.
 
+PR 10 adds the first publication gate planner. `publish-plan` requires reviewed
+report exports, source manifest, export diagnostics, reconciliation
+diagnostics, LLM evaluation report, and backfill diagnostics before production
+publication planning can proceed. It blocks production planning when required
+artifacts are missing, human approval is absent, GitHub credentials are absent,
+export diagnostics contain validation failures or duplicate IDs, reconciliation
+has `needs_review` or rejected decisions, backfill diagnostics contain
+unresolved/rejected fields, or LLM evaluation reports contain missing,
+incorrect, or regressed fields. Dry-run mode writes the same blockers as
+reviewable diagnostics without attempting data-repo actions.
+
+PR 10 also guards artifact classes. Publication inputs and generated PR text
+exclude downloaded PDFs, rendered page images, prompt payloads, raw LLM
+responses, candidate payload manifests, unreviewed large artifacts,
+finding-level rows, suspected sensitive personal data, and generated
+publication outputs in this builder repository.
+
 ## Backfill Quality Gate
 
 Backfills are expected when models, prompts, schema, rendering, parsing, or

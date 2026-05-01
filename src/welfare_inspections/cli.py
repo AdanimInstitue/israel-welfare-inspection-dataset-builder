@@ -23,6 +23,11 @@ from welfare_inspections.collect.pdf_text import extract_embedded_text_from_mani
 from welfare_inspections.collect.portal_discovery import (
     discover_source_documents,
 )
+from welfare_inspections.collect.publish import (
+    DEFAULT_DATA_REPO,
+    PublicationGateError,
+    create_publication_plan,
+)
 from welfare_inspections.collect.reconcile import (
     reconcile_report_metadata,
     run_backfill_dry_run,
@@ -616,6 +621,89 @@ def weekly_plan(
     console.print(
         f"Weekly plan mode={plan.mode}; commands={len(plan.commands)}; "
         f"summary={plan.summary_path}"
+    )
+
+
+@app.command("publish-plan")
+def publish_plan(
+    reviewed_artifact_dir: Annotated[
+        Path,
+        typer.Option(
+            "--reviewed-artifact-dir",
+            help="Directory containing reviewed pipeline artifacts for publication.",
+        ),
+    ] = Path("outputs/weekly"),
+    output_dir: Annotated[
+        Path,
+        typer.Option(
+            "--output-dir",
+            help="Ignored local directory for publication planning sidecars.",
+        ),
+    ] = Path("outputs/publication"),
+    mode: Annotated[
+        str,
+        typer.Option(
+            "--mode",
+            help="Publication planning mode: dry-run or production.",
+        ),
+    ] = "dry-run",
+    approved_for_publication: Annotated[
+        bool,
+        typer.Option(
+            "--approved-for-publication/--not-approved-for-publication",
+            help="Explicit human review gate for production publication planning.",
+        ),
+    ] = False,
+    data_repo: Annotated[
+        str,
+        typer.Option(
+            "--data-repo",
+            help="Target paired data repository owner/name.",
+        ),
+    ] = DEFAULT_DATA_REPO,
+    data_repo_branch: Annotated[
+        str | None,
+        typer.Option(
+            "--data-repo-branch",
+            help="Publication branch to prepare in the paired data repo.",
+        ),
+    ] = None,
+    release_id: Annotated[
+        str | None,
+        typer.Option(
+            "--release-id",
+            help="Release identifier used in planned data-repo paths.",
+        ),
+    ] = None,
+    data_repo_worktree: Annotated[
+        Path | None,
+        typer.Option(
+            "--data-repo-worktree",
+            help="Optional local checkout of the paired data repository.",
+        ),
+    ] = None,
+) -> None:
+    """Plan a gated publication PR into the paired data repository."""
+    try:
+        plan = create_publication_plan(
+            reviewed_artifact_dir=reviewed_artifact_dir,
+            output_dir=output_dir,
+            mode=mode,
+            approved_for_publication=approved_for_publication,
+            data_repo=data_repo,
+            data_repo_publication_branch=data_repo_branch,
+            release_id=release_id,
+            data_repo_worktree=data_repo_worktree,
+        )
+    except PublicationGateError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(code=2) from exc
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc), param_hint="--mode") from exc
+    console.print(
+        f"Publication plan mode={plan.mode}; status={plan.status}; "
+        f"branch={plan.data_repo_publication_branch}; "
+        f"diagnostics={plan.diagnostics_path}"
     )
 
 
