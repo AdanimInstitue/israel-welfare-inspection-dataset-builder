@@ -72,7 +72,7 @@
         "type": "object",
         "properties": {
           "page_number": { "type": ["integer", "null"], "minimum": 1 },
-          "raw_excerpt": { "type": ["string", "null"] },
+          "raw_excerpt": { "type": ["string", "null"], "minLength": 1 },
           "visual_locator": {
             "type": ["object", "null"],
             "required": [
@@ -100,8 +100,18 @@
           }
         },
         "anyOf": [
-          { "required": ["raw_excerpt"] },
-          { "required": ["visual_locator"] }
+          {
+            "required": ["raw_excerpt"],
+            "properties": {
+              "raw_excerpt": { "type": "string", "minLength": 1 }
+            }
+          },
+          {
+            "required": ["visual_locator"],
+            "properties": {
+              "visual_locator": { "type": "object" }
+            }
+          }
         ],
         "additionalProperties": false
       }

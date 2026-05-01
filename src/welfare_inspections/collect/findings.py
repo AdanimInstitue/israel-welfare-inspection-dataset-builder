@@ -99,7 +99,7 @@ def extract_finding_candidates(
     if mode not in {"dry-run", "mock", "production"}:
         msg = "mode must be one of: dry-run, mock, production"
         raise ValueError(msg)
-    if mode == "production" and provider is None:
+    if mode == "production":
         msg = (
             "Live finding extraction is not supported yet; use dry-run or mock "
             "mode with local fixtures."
@@ -249,8 +249,11 @@ def _candidate_from_provider_payload(
             artifact.rendered_artifact_id for artifact in rendered_artifacts
         ]
         rendered_hashes = [artifact.image_sha256 for artifact in rendered_artifacts]
-    raw_finding_text = payload.get("finding_text_raw") or payload.get("finding_text")
-    finding_text = str(raw_finding_text) if raw_finding_text else ""
+    finding_text_value = payload.get("finding_text_raw", payload.get("finding_text"))
+    if not isinstance(finding_text_value, str) or not finding_text_value.strip():
+        msg = "finding_text_raw must be a non-empty string."
+        raise ValueError(msg)
+    finding_text = finding_text_value
     finding_index = payload.get("finding_index", fallback_index)
     report_id = payload.get("report_id")
     finding_type = payload.get("finding_type")

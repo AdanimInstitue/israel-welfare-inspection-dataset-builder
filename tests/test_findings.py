@@ -144,6 +144,49 @@ def test_extract_findings_malformed_candidate_becomes_diagnostic(
     ].warnings[0]
 
 
+def test_extract_findings_non_string_finding_text_becomes_diagnostic(
+    tmp_path: Path,
+) -> None:
+    record = _record("non-string-text")
+    manifest_path = tmp_path / "download_manifest.jsonl"
+    mock_response_path = tmp_path / "mock_findings.jsonl"
+    output_path = tmp_path / "finding_candidates.jsonl"
+    diagnostics_path = tmp_path / "finding_diagnostics.json"
+    write_source_manifest(manifest_path, [record])
+    _write_jsonl(
+        mock_response_path,
+        [
+            {
+                "source_document_id": record.source_document_id,
+                "findings": [
+                    {
+                        "finding_text": {"unexpected": "object"},
+                        "extraction_method": "llm_text",
+                        "page_number": 1,
+                        "raw_excerpt": "excerpt",
+                        "confidence": 0.5,
+                        "validation_status": "valid",
+                    }
+                ],
+            }
+        ],
+    )
+
+    candidates, diagnostics = extract_finding_candidates(
+        source_manifest_path=manifest_path,
+        output_path=output_path,
+        diagnostics_path=diagnostics_path,
+        mode="mock",
+        mock_response_path=mock_response_path,
+    )
+
+    assert candidates == []
+    assert output_path.read_text(encoding="utf-8") == ""
+    assert "finding_text_raw must be a non-empty string" in (
+        diagnostics.record_diagnostics[0].warnings[0]
+    )
+
+
 def test_extract_findings_requires_source_pdf_hash(tmp_path: Path) -> None:
     record = _record("no-hash")
     record.pdf_sha256 = None
@@ -197,6 +240,23 @@ def test_extract_findings_production_mode_fails_closed(tmp_path: Path) -> None:
             output_path=tmp_path / "finding_candidates.jsonl",
             diagnostics_path=tmp_path / "finding_diagnostics.json",
             mode="production",
+        )
+
+
+def test_extract_findings_production_mode_rejects_injected_provider(
+    tmp_path: Path,
+) -> None:
+    record = _record("production-provider")
+    manifest_path = tmp_path / "download_manifest.jsonl"
+    write_source_manifest(manifest_path, [record])
+
+    with pytest.raises(UnsupportedFindingProductionMode):
+        extract_finding_candidates(
+            source_manifest_path=manifest_path,
+            output_path=tmp_path / "finding_candidates.jsonl",
+            diagnostics_path=tmp_path / "finding_diagnostics.json",
+            mode="production",
+            provider=SimpleProvider(),
         )
 
 
@@ -292,6 +352,25 @@ def test_finding_schema_contracts_include_runtime_invariants() -> None:
         "invalid",
         "needs_review",
     ]
+
+
+def test_finding_schema_rejects_null_only_evidence() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    candidate_schema = json.loads(
+        (repo_root / "schemas/finding_candidate.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    evidence_item_schema = candidate_schema["properties"]["evidence"]["items"]
+    raw_excerpt_rule = evidence_item_schema["anyOf"][0]["properties"][
+        "raw_excerpt"
+    ]
+    visual_locator_rule = evidence_item_schema["anyOf"][1]["properties"][
+        "visual_locator"
+    ]
+
+    assert raw_excerpt_rule == {"type": "string", "minLength": 1}
+    assert visual_locator_rule == {"type": "object"}
 
 
 def _candidate_payload() -> dict[str, object]:
@@ -408,3 +487,11 @@ class SimpleFindingDiagnostics:
     total_records = 1
     failed_records = 0
     warning_records = 0
+
+
+class SimpleProvider:
+    model_name = "test-provider"
+    model_version = "test"
+
+    def extract_findings(self, **kwargs: object) -> list[dict[str, object]]:
+        return []
