@@ -213,6 +213,10 @@ tempCodeRunnerFile.py
 # provenance/licensing notes and unignored by name if needed.
 data/
 outputs/
+outputs/rendered_pages/
+outputs/llm_metadata_candidates.jsonl
+outputs/llm_extraction_diagnostics.json
+outputs/llm_eval_report.json
 artifacts/
 data_samples/raw_pdfs/*.pdf
 data_samples/raw_pdfs/*.PDF

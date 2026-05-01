@@ -10,10 +10,15 @@ from rich.console import Console
 
 from welfare_inspections import __version__
 from welfare_inspections.collect.export import export_reports_from_metadata
+from welfare_inspections.collect.llm_extract import extract_llm_candidates
 from welfare_inspections.collect.metadata_parser import (
     parse_metadata_from_text_diagnostics,
 )
 from welfare_inspections.collect.pdf_download import download_source_pdfs
+from welfare_inspections.collect.pdf_render import (
+    DEFAULT_RENDER_PROFILE,
+    render_pages_from_manifest,
+)
 from welfare_inspections.collect.pdf_text import extract_embedded_text_from_manifest
 from welfare_inspections.collect.portal_discovery import (
     discover_source_documents,
@@ -251,6 +256,147 @@ def parse_metadata(
     console.print(
         f"Processed {run_diagnostics.total_records} text records; "
         f"parsed={run_diagnostics.parsed_records}; "
+        f"failed={run_diagnostics.failed_records}; "
+        f"warnings={run_diagnostics.warning_records}"
+    )
+
+
+@app.command("render-pages")
+def render_pages(
+    source_manifest: Annotated[
+        Path,
+        typer.Option(
+            "--source-manifest",
+            help="Path to a PR 3 download manifest JSONL.",
+        ),
+    ] = Path("outputs/download_manifest.jsonl"),
+    output_manifest: Annotated[
+        Path,
+        typer.Option(
+            "--output-manifest",
+            help="Path for rendered page artifact manifest JSONL.",
+        ),
+    ] = Path("outputs/rendered_pages_manifest.jsonl"),
+    page_output_dir: Annotated[
+        Path,
+        typer.Option(
+            "--page-output-dir",
+            help="Ignored local directory for rendered page images.",
+        ),
+    ] = Path("outputs/rendered_pages"),
+    diagnostics: Annotated[
+        Path,
+        typer.Option(
+            "--diagnostics",
+            help="Path for page rendering diagnostics JSON.",
+        ),
+    ] = Path("outputs/page_render_diagnostics.json"),
+    overwrite: Annotated[
+        bool,
+        typer.Option(
+            "--overwrite/--no-overwrite",
+            help="Overwrite existing rendered page images.",
+        ),
+    ] = False,
+) -> None:
+    """Manually render local downloaded PDFs into ignored page images."""
+    artifacts, run_diagnostics = render_pages_from_manifest(
+        source_manifest_path=source_manifest,
+        output_manifest_path=output_manifest,
+        diagnostics_path=diagnostics,
+        page_output_dir=page_output_dir,
+        render_profile=DEFAULT_RENDER_PROFILE,
+        overwrite=overwrite,
+    )
+    console.print(
+        f"Processed {run_diagnostics.total_records} source records; "
+        f"artifacts={len(artifacts)}; "
+        f"rendered={run_diagnostics.rendered_records}; "
+        f"failed={run_diagnostics.failed_records}"
+    )
+
+
+@app.command("extract-llm")
+def extract_llm(
+    source_manifest: Annotated[
+        Path,
+        typer.Option(
+            "--source-manifest",
+            help="Path to a PR 3 download manifest JSONL.",
+        ),
+    ] = Path("outputs/download_manifest.jsonl"),
+    text_diagnostics: Annotated[
+        Path | None,
+        typer.Option(
+            "--text-diagnostics",
+            help="Path to PR 4 embedded text extraction diagnostics JSON.",
+        ),
+    ] = Path("outputs/text_extraction_diagnostics.json"),
+    render_manifest: Annotated[
+        Path | None,
+        typer.Option(
+            "--render-manifest",
+            help="Path to rendered page artifact manifest JSONL.",
+        ),
+    ] = Path("outputs/rendered_pages_manifest.jsonl"),
+    output: Annotated[
+        Path,
+        typer.Option(
+            "--output",
+            help="Path for ignored LLM extraction candidate JSONL output.",
+        ),
+    ] = Path("outputs/llm_metadata_candidates.jsonl"),
+    diagnostics: Annotated[
+        Path,
+        typer.Option(
+            "--diagnostics",
+            help="Path for LLM extraction diagnostics JSON.",
+        ),
+    ] = Path("outputs/llm_extraction_diagnostics.json"),
+    eval_fixtures: Annotated[
+        Path | None,
+        typer.Option(
+            "--eval-fixtures",
+            help="Optional JSONL reviewed expectations for offline evaluation.",
+        ),
+    ] = None,
+    eval_report: Annotated[
+        Path | None,
+        typer.Option(
+            "--eval-report",
+            help="Optional output path for offline LLM evaluation report.",
+        ),
+    ] = Path("outputs/llm_eval_report.json"),
+    mode: Annotated[
+        str,
+        typer.Option(
+            "--mode",
+            help="Extraction mode: dry-run, mock, or production.",
+        ),
+    ] = "dry-run",
+    mock_response_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--mock-response-path",
+            help="JSONL mock provider responses for offline test extraction.",
+        ),
+    ] = None,
+) -> None:
+    """Validate schema-bound LLM extraction plumbing without live CI calls."""
+    candidates, run_diagnostics = extract_llm_candidates(
+        source_manifest_path=source_manifest,
+        text_diagnostics_path=text_diagnostics,
+        render_manifest_path=render_manifest,
+        output_path=output,
+        diagnostics_path=diagnostics,
+        eval_fixtures_path=eval_fixtures,
+        eval_report_path=eval_report,
+        mode=mode,
+        mock_response_path=mock_response_path,
+    )
+    console.print(
+        f"Processed {run_diagnostics.total_records} source records; "
+        f"candidates={len(candidates)}; "
         f"failed={run_diagnostics.failed_records}; "
         f"warnings={run_diagnostics.warning_records}"
     )

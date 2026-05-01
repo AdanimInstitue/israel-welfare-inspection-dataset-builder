@@ -6,7 +6,7 @@ from datetime import UTC, date, datetime
 from hashlib import sha256
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 def utc_now() -> datetime:
@@ -353,3 +353,289 @@ class ExportRunDiagnostics(BaseModel):
     record_diagnostics: list[ExportRecordDiagnostic] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
     extra: dict[str, Any] = Field(default_factory=dict)
+
+
+class CropBox(BaseModel):
+    """Pixel-space crop coordinates in the parent rendered page."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    x: int = Field(ge=0)
+    y: int = Field(ge=0)
+    width: int = Field(gt=0)
+    height: int = Field(gt=0)
+
+
+class RenderProfile(BaseModel):
+    """Versioned PDF page rendering settings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    render_profile_id: str = Field(min_length=1)
+    render_profile_version: str = Field(min_length=1)
+    dpi: int = Field(gt=0)
+    colorspace: str = Field(min_length=1)
+    image_format: str = Field(min_length=1)
+    rotation_degrees: int = Field(default=0)
+    coordinate_system: str = Field(min_length=1)
+
+
+class RenderedPageArtifact(BaseModel):
+    """One rendered page or crop image used as multimodal LLM input."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rendered_artifact_id: str = Field(min_length=1)
+    source_document_id: str = Field(min_length=1)
+    source_pdf_sha256: str = Field(min_length=64, max_length=64)
+    page_number: int = Field(ge=1)
+    artifact_type: str = Field(pattern="^(page|crop)$")
+    parent_rendered_artifact_id: str | None = None
+    renderer_name: str = Field(min_length=1)
+    renderer_version: str = Field(min_length=1)
+    render_profile_id: str = Field(min_length=1)
+    render_profile_version: str = Field(min_length=1)
+    dpi: int = Field(gt=0)
+    colorspace: str = Field(min_length=1)
+    image_format: str = Field(min_length=1)
+    rotation_degrees: int = Field(default=0)
+    crop_box: CropBox | None = None
+    coordinate_system: str = Field(min_length=1)
+    width_px: int = Field(gt=0)
+    height_px: int = Field(gt=0)
+    image_sha256: str = Field(min_length=64, max_length=64)
+    local_path: str = Field(min_length=1)
+    rendered_at: datetime = Field(default_factory=utc_now)
+
+    @model_validator(mode="after")
+    def validate_crop_contract(self) -> RenderedPageArtifact:
+        if self.artifact_type == "page" and self.crop_box is not None:
+            msg = "Full-page rendered artifacts must not include crop_box."
+            raise ValueError(msg)
+        if self.artifact_type == "crop" and self.crop_box is None:
+            msg = "Crop rendered artifacts must include crop_box."
+            raise ValueError(msg)
+        return self
+
+
+class PageRenderRecordDiagnostic(BaseModel):
+    """Per-document diagnostics for PDF page rendering."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_document_id: str
+    pdf_sha256: str | None = None
+    local_path: str | None = None
+    status: str
+    page_count: int | None = None
+    rendered_artifact_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    error: str | None = None
+    checked_at: datetime = Field(default_factory=utc_now)
+
+
+class PageRenderRunDiagnostics(BaseModel):
+    """Sidecar diagnostics for one manual page rendering run."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    started_at: datetime = Field(default_factory=utc_now)
+    finished_at: datetime | None = None
+    source_manifest_path: str
+    output_manifest_path: str
+    page_output_dir: str
+    render_profile: RenderProfile
+    total_records: int = 0
+    rendered_records: int = 0
+    skipped_existing_records: int = 0
+    failed_records: int = 0
+    missing_pdf_records: int = 0
+    missing_checksum_records: int = 0
+    artifact_count: int = 0
+    record_diagnostics: list[PageRenderRecordDiagnostic] = Field(
+        default_factory=list
+    )
+    notes: list[str] = Field(default_factory=list)
+    extra: dict[str, Any] = Field(default_factory=dict)
+
+
+class VisualLocator(BaseModel):
+    """Visual evidence locator using the rendered artifact coordinate system."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rendered_artifact_id: str = Field(min_length=1)
+    coordinate_system: str = Field(min_length=1)
+    bounding_box: CropBox
+    note: str | None = None
+
+
+class FieldEvidence(BaseModel):
+    """Source evidence for one extracted candidate field."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    page_number: int | None = Field(default=None, ge=1)
+    raw_excerpt: str | None = None
+    visual_locator: VisualLocator | None = None
+
+    @model_validator(mode="after")
+    def validate_evidence_present(self) -> FieldEvidence:
+        if not self.raw_excerpt and self.visual_locator is None:
+            msg = "Field evidence requires raw_excerpt or visual_locator."
+            raise ValueError(msg)
+        return self
+
+
+class LLMExtractionCandidate(BaseModel):
+    """Schema-bound candidate value emitted by an LLM extraction stage."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    candidate_id: str = Field(min_length=1)
+    source_document_id: str = Field(min_length=1)
+    report_id: str | None = None
+    field_name: str = Field(min_length=1)
+    raw_value: str | None = None
+    normalized_value: str | date | int | float | None = None
+    extraction_method: str = Field(pattern="^(llm_text|llm_multimodal)$")
+    extractor_version: str = Field(min_length=1)
+    source_pdf_sha256: str = Field(min_length=64, max_length=64)
+    text_input_sha256: str | None = Field(default=None, min_length=64, max_length=64)
+    rendered_artifact_ids: list[str] = Field(default_factory=list)
+    rendered_artifact_sha256s: list[str] = Field(default_factory=list)
+    prompt_id: str = Field(min_length=1)
+    prompt_version: str = Field(min_length=1)
+    prompt_input_sha256: str = Field(min_length=64, max_length=64)
+    model_name: str | None = None
+    model_version: str | None = None
+    field_evidence: FieldEvidence
+    confidence: float = Field(ge=0.0, le=1.0)
+    warnings: list[str] = Field(default_factory=list)
+    validation_status: str = Field(pattern="^(valid|invalid|needs_review)$")
+    validation_errors: list[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=utc_now)
+
+    @model_validator(mode="after")
+    def validate_input_identity(self) -> LLMExtractionCandidate:
+        if self.field_name.endswith("_date") and isinstance(
+            self.normalized_value,
+            str,
+        ):
+            try:
+                date.fromisoformat(self.normalized_value)
+            except ValueError as exc:
+                msg = (
+                    f"{self.field_name} normalized_value must be an ISO date "
+                    "when provided as a string."
+                )
+                raise ValueError(msg) from exc
+        if self.extraction_method == "llm_text" and not self.text_input_sha256:
+            msg = "llm_text candidates require text_input_sha256."
+            raise ValueError(msg)
+        if self.extraction_method == "llm_multimodal":
+            if not self.rendered_artifact_ids or not self.rendered_artifact_sha256s:
+                msg = (
+                    "llm_multimodal candidates require rendered artifact IDs "
+                    "and hashes."
+                )
+                raise ValueError(msg)
+            if len(self.rendered_artifact_ids) != len(self.rendered_artifact_sha256s):
+                msg = "Rendered artifact ID and hash counts must match."
+                raise ValueError(msg)
+        return self
+
+
+class LLMExtractionRecordDiagnostic(BaseModel):
+    """Per-document diagnostics for one LLM extraction attempt."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_document_id: str
+    status: str
+    extraction_methods: list[str] = Field(default_factory=list)
+    candidate_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+    checked_at: datetime = Field(default_factory=utc_now)
+
+
+class LLMExtractionRunDiagnostics(BaseModel):
+    """Sidecar diagnostics for one manual LLM extraction run."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    started_at: datetime = Field(default_factory=utc_now)
+    finished_at: datetime | None = None
+    mode: str
+    source_manifest_path: str
+    text_diagnostics_path: str | None = None
+    render_manifest_path: str | None = None
+    output_path: str
+    diagnostics_path: str
+    prompt_id: str
+    prompt_version: str
+    model_name: str | None = None
+    model_version: str | None = None
+    total_records: int = 0
+    candidate_records: int = 0
+    failed_records: int = 0
+    warning_records: int = 0
+    record_diagnostics: list[LLMExtractionRecordDiagnostic] = Field(
+        default_factory=list
+    )
+    notes: list[str] = Field(default_factory=list)
+    extra: dict[str, Any] = Field(default_factory=dict)
+
+
+class EvaluationExpectedField(BaseModel):
+    """Reviewed expected value for offline LLM candidate evaluation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_document_id: str
+    field_name: str
+    expected_normalized_value: str | date | int | float | None = None
+    required: bool = True
+
+
+class EvaluationFieldResult(BaseModel):
+    """Field-level offline evaluation result."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_document_id: str
+    field_name: str
+    expected_normalized_value: str | date | int | float | None = None
+    observed_normalized_value: str | date | int | float | None = None
+    status: str
+    candidate_id: str | None = None
+
+
+class LLMEvaluationReport(BaseModel):
+    """Offline evaluation report for LLM extraction candidate manifests."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    started_at: datetime = Field(default_factory=utc_now)
+    finished_at: datetime | None = None
+    candidate_manifest_path: str
+    fixture_path: str | None = None
+    schema_version: str
+    prompt_id: str
+    prompt_version: str
+    model_name: str | None = None
+    model_version: str | None = None
+    renderer_name: str | None = None
+    renderer_version: str | None = None
+    render_profile_id: str | None = None
+    render_profile_version: str | None = None
+    expected_field_count: int = 0
+    observed_field_count: int = 0
+    covered_field_count: int = 0
+    correct_field_count: int = 0
+    missing_field_count: int = 0
+    incorrect_field_count: int = 0
+    regression_count: int = 0
+    field_results: list[EvaluationFieldResult] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)

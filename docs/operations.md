@@ -5,9 +5,10 @@ download/checksum layer that reads the PR 2 source manifest. PR 4 adds a manual
 embedded-text extraction layer that reads the PR 3 download manifest. PR 5 adds
 a manual top-level metadata parser that reads PR 4 extracted text and
 diagnostics. PR 6 adds a manual schema validation and local export layer that
-reads PR 5 metadata JSONL and diagnostics. These commands are inert by default
-and write ignored local outputs. CI remains offline and uses mocked or synthetic
-inputs only.
+reads PR 5 metadata JSONL and diagnostics. PR 7 adds manual page rendering,
+schema-bound LLM candidate plumbing, and offline evaluation reporting. These
+commands are inert by default and write ignored local outputs. CI remains
+offline and uses mocked or synthetic inputs only.
 
 Real PDF inspection showed that embedded-text parsing alone is not sufficient
 for useful publication. The production pipeline therefore needs required
@@ -25,12 +26,12 @@ Current manual commands:
 - `welfare-inspections download`
 - `welfare-inspections parse`
 - `welfare-inspections parse-metadata`
+- `welfare-inspections render-pages`
+- `welfare-inspections extract-llm`
 - `welfare-inspections export`
 
 Planned future commands:
 
-- `welfare-inspections render-pages`
-- `welfare-inspections extract-llm`
 - `welfare-inspections reconcile`
 - `welfare-inspections backfill`
 - `welfare-inspections build`
@@ -143,23 +144,25 @@ artifact set. It does not inspect PDFs, collect from Gov.il, OCR, parse
 finding-level rows, publish data, write to the paired data repository, or
 contact the network.
 
-Planned LLM extraction flow:
+Current PR 7 page rendering and LLM extraction flow:
 
 ```bash
 welfare-inspections render-pages \
   --source-manifest outputs/download_manifest.jsonl \
-  --render-profile default-v1 \
+  --output-manifest outputs/rendered_pages_manifest.jsonl \
   --page-output-dir outputs/rendered_pages \
   --diagnostics outputs/page_render_diagnostics.json
 
 welfare-inspections extract-llm \
   --source-manifest outputs/download_manifest.jsonl \
   --text-diagnostics outputs/text_extraction_diagnostics.json \
-  --render-diagnostics outputs/page_render_diagnostics.json \
+  --render-manifest outputs/rendered_pages_manifest.jsonl \
   --eval-fixtures data_samples/expected_outputs/llm_eval.jsonl \
   --output outputs/llm_metadata_candidates.jsonl \
   --diagnostics outputs/llm_extraction_diagnostics.json \
-  --eval-report outputs/llm_eval_report.json
+  --eval-report outputs/llm_eval_report.json \
+  --mode mock \
+  --mock-response-path outputs/mock_llm_responses.jsonl
 
 welfare-inspections reconcile \
   --metadata outputs/report_metadata.jsonl \
@@ -168,6 +171,20 @@ welfare-inspections reconcile \
   --output outputs/reconciled_report_metadata.jsonl \
   --diagnostics outputs/reconciliation_diagnostics.json
 ```
+
+The PR 7 `render-pages` command reads only PR 3 download manifests and local PDF
+paths. It renders full-page PNGs with PyMuPDF using `default-v1`, records image
+dimensions and SHA-256 hashes, writes
+`outputs/rendered_pages_manifest.jsonl`, and preserves per-document diagnostics.
+It does not collect from Gov.il, download PDFs, OCR, parse findings, publish, or
+contact the network.
+
+The PR 7 `extract-llm` command defaults to `--mode dry-run`, which validates the
+plumbing and writes empty candidate outputs plus diagnostics. `--mode mock`
+uses local JSONL mock responses for deterministic offline tests. `--mode
+production` fails closed unless `WELFARE_INSPECTIONS_LLM_PROVIDER` and
+`WELFARE_INSPECTIONS_LLM_MODEL` are configured; live provider calls are not
+implemented in PR 7.
 
 LLM extraction is expected in production runs. It should be disabled only for
 offline tests or explicit dry-run/development scenarios. Provider configuration

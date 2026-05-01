@@ -53,6 +53,13 @@ the crop coordinates must be expressed in the parent page coordinate system.
 artifact and use the documented coordinate system so evidence remains stable
 across backfills.
 
+PR 7 implements the first full-page rendering contract with PyMuPDF PNG outputs
+under ignored local output directories. Render manifests include source
+document ID, source PDF SHA-256, page number, renderer name/version, render
+profile ID/version, DPI, colorspace, image format, rotation/crop metadata,
+coordinate system, dimensions, image SHA-256, and local path. Crops remain a
+contract surface only until a later PR needs page regions.
+
 ## LLM Extraction Contracts
 
 Every LLM call must request strict JSON matching a versioned schema. Free-form
@@ -76,6 +83,11 @@ Each candidate field returned by an LLM must include:
 The extractor should prefer small page-scoped prompts over sending entire
 documents when possible. Prompt inputs must not include secrets, private local
 configuration, or unrelated browser/session state.
+
+PR 7 adds the candidate contract and CLI plumbing but not live provider calls.
+`extract-llm --mode dry-run` writes no candidates, `--mode mock` validates local
+mock responses, and `--mode production` fails closed when provider settings are
+missing. Candidate manifests remain sidecar artifacts for reconciliation.
 
 ## Reconciliation
 
@@ -111,6 +123,11 @@ representative PDFs, expected report-level fields, and known hard cases. The
 offline evaluator compares candidate manifests against expected values and
 emits field-level coverage, correctness, and regression summaries by schema,
 prompt, model, renderer, and reconciler version.
+
+PR 7 adds the offline evaluation report contract and evaluator stub. It compares
+candidate manifests to JSONL expected field fixtures without calling a provider.
+Regression comparison is represented structurally and remains zero until the
+project introduces an accepted baseline artifact.
 
 Publication must be blocked when required evaluation thresholds fail, even if
 candidate JSON is schema-valid. Thresholds should be conservative at first and

@@ -258,3 +258,16 @@ warnings or per-document diagnostics rather than full-run failures when safe.
 `schemas/report.schema.json` defines the PR 6 canonical report-level local
 export row. Facility, inspection finding, and datapackage schemas remain
 minimal placeholders until those export surfaces are implemented.
+
+PR 7 adds sidecar schema contracts:
+
+- `schemas/rendered_page_artifact.schema.json` for rendered full-page and crop
+  image artifacts used by multimodal extraction.
+- `schemas/llm_extraction_candidate.schema.json` for schema-bound LLM field
+  candidates before reconciliation.
+- `schemas/llm_evaluation_report.schema.json` for offline comparison of LLM
+  candidate manifests to reviewed expected values.
+
+These PR 7 schemas describe intermediate local artifacts. They do not authorize
+publishing LLM-derived values as canonical rows without later reconciliation,
+privacy review, and publication gates.

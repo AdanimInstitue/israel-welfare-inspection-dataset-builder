@@ -43,6 +43,12 @@ configuration to an LLM provider. Prompt and response logs must be stored only
 when they are safe to retain and useful for audit; otherwise store hashes,
 model/prompt versions, and structured extraction diagnostics.
 
+PR 7 keeps prompt/provider payload handling local and inert: dry-run mode emits
+no provider payloads, mock mode reads local JSONL fixtures, and production mode
+fails closed without explicit provider/model configuration. Generated images,
+prompt payloads, raw responses, candidates, diagnostics, and evaluation reports
+remain under ignored local output directories until separately reviewed.
+
 ## Data Repository Placeholders
 
 The paired data repository should eventually include `NOTICE.md`,
