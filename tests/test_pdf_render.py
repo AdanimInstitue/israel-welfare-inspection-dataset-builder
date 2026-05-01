@@ -141,6 +141,24 @@ def test_render_pages_records_missing_pdf_and_checksum_diagnostics(
     ]
 
 
+def test_render_pages_rejects_generated_outputs_inside_tracked_repo_paths(
+    tmp_path: Path,
+) -> None:
+    pdf_path = _synthetic_pdf(tmp_path / "report.pdf", ["A"])
+    record = _record("bad-output", pdf_path)
+    manifest_path = tmp_path / "download_manifest.jsonl"
+    write_source_manifest(manifest_path, [record])
+    repo_root = Path(__file__).resolve().parents[1]
+
+    with pytest.raises(ValueError, match="outputs/"):
+        render_pages_from_manifest(
+            source_manifest_path=manifest_path,
+            output_manifest_path=repo_root / "schemas" / "rendered.jsonl",
+            diagnostics_path=tmp_path / "diagnostics.json",
+            page_output_dir=tmp_path / "rendered",
+        )
+
+
 def test_cli_render_pages_invokes_renderer(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

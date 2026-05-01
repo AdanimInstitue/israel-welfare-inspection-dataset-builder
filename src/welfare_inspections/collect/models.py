@@ -543,6 +543,13 @@ class LLMExtractionCandidate(BaseModel):
             if len(self.rendered_artifact_ids) != len(self.rendered_artifact_sha256s):
                 msg = "Rendered artifact ID and hash counts must match."
                 raise ValueError(msg)
+            locator = self.field_evidence.visual_locator
+            if (
+                locator
+                and locator.rendered_artifact_id not in self.rendered_artifact_ids
+            ):
+                msg = "visual_locator rendered_artifact_id must be an input artifact."
+                raise ValueError(msg)
         return self
 
 
@@ -610,6 +617,8 @@ class EvaluationFieldResult(BaseModel):
     observed_normalized_value: str | date | int | float | None = None
     status: str
     candidate_id: str | None = None
+    candidate_ids: list[str] = Field(default_factory=list)
+    observed_candidate_count: int = 0
 
 
 class LLMEvaluationReport(BaseModel):

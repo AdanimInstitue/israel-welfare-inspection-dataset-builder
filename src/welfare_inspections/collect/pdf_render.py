@@ -8,6 +8,7 @@ from pathlib import Path
 import fitz
 import structlog
 
+from welfare_inspections.collect.local_outputs import validate_local_output_path
 from welfare_inspections.collect.manifest import (
     read_source_manifest,
     write_page_render_diagnostics,
@@ -46,6 +47,9 @@ def render_pages_from_manifest(
     overwrite: bool = False,
 ) -> tuple[list[RenderedPageArtifact], PageRenderRunDiagnostics]:
     """Render downloaded PDFs from a PR 3 manifest into local page images."""
+    validate_local_output_path(output_manifest_path, label="Render output_manifest")
+    validate_local_output_path(diagnostics_path, label="Render diagnostics")
+    validate_local_output_path(page_output_dir, label="Render page_output_dir")
     records = read_source_manifest(source_manifest_path)
     diagnostics = PageRenderRunDiagnostics(
         source_manifest_path=str(source_manifest_path),

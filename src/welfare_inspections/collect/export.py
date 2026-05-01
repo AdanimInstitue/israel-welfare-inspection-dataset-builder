@@ -13,6 +13,8 @@ from typing import Any
 import structlog
 from pydantic import ValidationError
 
+from welfare_inspections.collect import local_outputs
+from welfare_inspections.collect.local_outputs import validate_local_output_path
 from welfare_inspections.collect.manifest import (
     _atomic_write_text,
     write_export_diagnostics,
@@ -29,8 +31,7 @@ from welfare_inspections.collect.models import (
 )
 
 logger = structlog.get_logger(__name__)
-REPO_ROOT = Path(__file__).resolve().parents[3]
-IGNORED_OUTPUT_ROOT = REPO_ROOT / "outputs"
+REPO_ROOT = local_outputs.REPO_ROOT
 
 REPORT_CSV_COLUMNS = [
     "report_id",
@@ -168,23 +169,7 @@ def export_reports_from_metadata(
 
 
 def _validate_local_output_dir(output_dir: Path) -> None:
-    resolved_output_dir = output_dir.resolve()
-    resolved_repo_root = REPO_ROOT.resolve()
-    resolved_ignored_root = IGNORED_OUTPUT_ROOT.resolve()
-    if (
-        resolved_output_dir == resolved_ignored_root
-        or resolved_ignored_root in resolved_output_dir.parents
-    ):
-        return
-    if (
-        resolved_output_dir == resolved_repo_root
-        or resolved_repo_root in resolved_output_dir.parents
-    ):
-        msg = (
-            "Export output_dir must be under the ignored local outputs/ "
-            "directory when writing inside the repository."
-        )
-        raise ValueError(msg)
+    validate_local_output_path(output_dir, label="Export output_dir")
 
 
 def _read_required_metadata_diagnostics(

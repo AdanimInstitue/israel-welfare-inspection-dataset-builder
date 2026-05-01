@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from welfare_inspections import cli
 from welfare_inspections.collect.llm_extract import (
     MissingProviderConfiguration,
+    evaluate_llm_candidates,
     extract_llm_candidates,
 )
 from welfare_inspections.collect.manifest import (
@@ -222,6 +223,88 @@ def test_extract_llm_multimodal_candidate_requires_rendered_hashes(
     assert candidates[0].rendered_artifact_sha256s == [_sha("image")]
 
 
+def test_multimodal_candidate_rejects_visual_locator_outside_inputs() -> None:
+    payload = _candidate_payload(field_name="facility_type")
+    payload.update(
+        {
+            "extraction_method": "llm_multimodal",
+            "text_input_sha256": None,
+            "rendered_artifact_ids": ["rendered-page-a"],
+            "rendered_artifact_sha256s": [_sha("image-a")],
+            "field_evidence": {
+                "page_number": 1,
+                "visual_locator": {
+                    "rendered_artifact_id": "rendered-page-b",
+                    "coordinate_system": "pixel_top_left_origin_1_based_page",
+                    "bounding_box": {
+                        "x": 1,
+                        "y": 2,
+                        "width": 30,
+                        "height": 40,
+                    },
+                },
+            },
+        }
+    )
+
+    with pytest.raises(ValidationError):
+        LLMExtractionCandidate.model_validate(payload)
+
+
+def test_extract_llm_rejects_multimodal_visual_locator_coordinate_mismatch(
+    tmp_path: Path,
+) -> None:
+    record = _record("coordinate-mismatch")
+    manifest_path = tmp_path / "download_manifest.jsonl"
+    render_manifest_path = _write_render_manifest(tmp_path, record)
+    mock_response_path = tmp_path / "mock_responses.jsonl"
+    write_source_manifest(manifest_path, [record])
+    _write_jsonl(
+        mock_response_path,
+        [
+            {
+                "source_document_id": record.source_document_id,
+                "candidates": [
+                    {
+                        "field_name": "facility_type",
+                        "raw_value": "דיור",
+                        "normalized_value": "דיור",
+                        "extraction_method": "llm_multimodal",
+                        "field_evidence": {
+                            "page_number": 1,
+                            "visual_locator": {
+                                "rendered_artifact_id": "rendered-page-x",
+                                "coordinate_system": "wrong-coordinate-system",
+                                "bounding_box": {
+                                    "x": 1,
+                                    "y": 2,
+                                    "width": 30,
+                                    "height": 40,
+                                },
+                            },
+                        },
+                        "confidence": 0.8,
+                        "validation_status": "valid",
+                    }
+                ],
+            }
+        ],
+    )
+
+    candidates, diagnostics = extract_llm_candidates(
+        source_manifest_path=manifest_path,
+        render_manifest_path=render_manifest_path,
+        output_path=tmp_path / "candidates.jsonl",
+        diagnostics_path=tmp_path / "diagnostics.json",
+        mode="mock",
+        mock_response_path=mock_response_path,
+    )
+
+    assert candidates == []
+    assert diagnostics.record_diagnostics[0].status == "no_candidates"
+    assert "coordinate_system" in diagnostics.record_diagnostics[0].warnings[0]
+
+
 def test_extract_llm_production_mode_fails_closed_without_provider_config(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -239,6 +322,81 @@ def test_extract_llm_production_mode_fails_closed_without_provider_config(
             diagnostics_path=tmp_path / "diagnostics.json",
             mode="production",
         )
+
+
+def test_extract_llm_production_provider_failure_raises(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    record = _record("production-provider")
+    manifest_path = tmp_path / "download_manifest.jsonl"
+    write_source_manifest(manifest_path, [record])
+    monkeypatch.setenv("WELFARE_INSPECTIONS_LLM_PROVIDER", "placeholder")
+    monkeypatch.setenv("WELFARE_INSPECTIONS_LLM_MODEL", "placeholder-model")
+
+    with pytest.raises(NotImplementedError):
+        extract_llm_candidates(
+            source_manifest_path=manifest_path,
+            output_path=tmp_path / "candidates.jsonl",
+            diagnostics_path=tmp_path / "diagnostics.json",
+            mode="production",
+        )
+
+
+def test_extract_llm_rejects_generated_outputs_inside_tracked_repo_paths(
+    tmp_path: Path,
+) -> None:
+    record = _record("bad-output")
+    manifest_path = tmp_path / "download_manifest.jsonl"
+    write_source_manifest(manifest_path, [record])
+    repo_root = Path(__file__).resolve().parents[1]
+
+    with pytest.raises(ValueError, match="outputs/"):
+        extract_llm_candidates(
+            source_manifest_path=manifest_path,
+            output_path=repo_root / "schemas" / "bad-candidates.jsonl",
+            diagnostics_path=tmp_path / "diagnostics.json",
+            mode="dry-run",
+        )
+
+
+def test_llm_evaluation_reports_ambiguous_duplicate_field_candidates(
+    tmp_path: Path,
+) -> None:
+    first = LLMExtractionCandidate.model_validate(_candidate_payload())
+    second_payload = _candidate_payload(normalized_value="Different")
+    second_payload["candidate_id"] = "llm-candidate-y"
+    second = LLMExtractionCandidate.model_validate(second_payload)
+    fixture_path = tmp_path / "expected.jsonl"
+    _write_jsonl(
+        fixture_path,
+        [
+            {
+                "source_document_id": "source-doc-x",
+                "field_name": "facility_name",
+                "expected_normalized_value": "Example",
+            }
+        ],
+    )
+
+    report = evaluate_llm_candidates(
+        candidates=[first, second],
+        candidate_manifest_path=tmp_path / "candidates.jsonl",
+        fixture_path=fixture_path,
+        prompt_id="prompt",
+        prompt_version="1",
+        model_name="mock",
+        model_version="1",
+    )
+
+    assert report.observed_field_count == 2
+    assert report.incorrect_field_count == 1
+    assert report.field_results[0].status == "ambiguous"
+    assert report.field_results[0].candidate_ids == [
+        "llm-candidate-x",
+        "llm-candidate-y",
+    ]
+    assert report.field_results[0].observed_candidate_count == 2
 
 
 def test_cli_extract_llm_invokes_extractor(

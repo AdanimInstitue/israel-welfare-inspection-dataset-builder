@@ -11,6 +11,7 @@ from typing import Protocol
 import structlog
 from pydantic import ValidationError
 
+from welfare_inspections.collect.local_outputs import validate_local_output_path
 from welfare_inspections.collect.manifest import (
     read_rendered_page_manifest,
     read_source_manifest,
@@ -135,6 +136,10 @@ def extract_llm_candidates(
     if mode not in {"dry-run", "mock", "production"}:
         msg = "mode must be one of: dry-run, mock, production"
         raise ValueError(msg)
+    validate_local_output_path(output_path, label="LLM candidate output")
+    validate_local_output_path(diagnostics_path, label="LLM diagnostics")
+    if eval_report_path:
+        validate_local_output_path(eval_report_path, label="LLM eval_report")
 
     records = read_source_manifest(source_manifest_path)
     text_by_source = _text_diagnostics_by_source(text_diagnostics_path)
@@ -223,20 +228,40 @@ def evaluate_llm_candidates(
 ) -> LLMEvaluationReport:
     """Compare candidate manifests to reviewed expected values offline."""
     expected_fields = _read_evaluation_fixtures(fixture_path)
-    candidates_by_key = {
-        (candidate.source_document_id, candidate.field_name): candidate
-        for candidate in candidates
-        if candidate.validation_status == "valid"
-    }
+    candidates_by_key: dict[tuple[str, str], list[LLMExtractionCandidate]] = {}
+    for candidate in candidates:
+        if candidate.validation_status == "valid":
+            candidates_by_key.setdefault(
+                (candidate.source_document_id, candidate.field_name),
+                [],
+            ).append(candidate)
     field_results: list[EvaluationFieldResult] = []
     for expected in expected_fields:
-        candidate = candidates_by_key.get(
-            (expected.source_document_id, expected.field_name)
+        field_candidates = candidates_by_key.get(
+            (expected.source_document_id, expected.field_name),
+            [],
         )
+        matching_candidates = [
+            candidate
+            for candidate in field_candidates
+            if _comparable(candidate.normalized_value)
+            == _comparable(expected.expected_normalized_value)
+        ]
+        observed_values = {
+            json.dumps(
+                _comparable(candidate.normalized_value),
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+            for candidate in field_candidates
+        }
+        candidate = field_candidates[0] if field_candidates else None
         observed = candidate.normalized_value if candidate else None
-        if candidate is None:
+        if not field_candidates:
             status = "missing" if expected.required else "not_observed"
-        elif _comparable(observed) == _comparable(expected.expected_normalized_value):
+        elif len(observed_values) > 1:
+            status = "ambiguous"
+        elif matching_candidates:
             status = "correct"
         else:
             status = "incorrect"
@@ -248,6 +273,11 @@ def evaluate_llm_candidates(
                 observed_normalized_value=observed,
                 status=status,
                 candidate_id=candidate.candidate_id if candidate else None,
+                candidate_ids=[
+                    field_candidate.candidate_id
+                    for field_candidate in field_candidates
+                ],
+                observed_candidate_count=len(field_candidates),
             )
         )
 
@@ -268,7 +298,7 @@ def evaluate_llm_candidates(
             first_rendered.render_profile_version if first_rendered else None
         ),
         expected_field_count=len(expected_fields),
-        observed_field_count=len(candidates_by_key),
+        observed_field_count=sum(len(values) for values in candidates_by_key.values()),
         covered_field_count=sum(
             1 for result in field_results if result.status in {"correct", "incorrect"}
         ),
@@ -279,7 +309,9 @@ def evaluate_llm_candidates(
             1 for result in field_results if result.status == "missing"
         ),
         incorrect_field_count=sum(
-            1 for result in field_results if result.status == "incorrect"
+            1
+            for result in field_results
+            if result.status in {"incorrect", "ambiguous"}
         ),
         regression_count=0,
         field_results=field_results,
@@ -333,6 +365,8 @@ def _extract_record_candidates(
             prompt_input_sha256=prompt_input_sha256,
         )
     except Exception as exc:
+        if mode == "production":
+            raise
         diagnostic.status = "failed"
         diagnostic.errors.append(str(exc))
         return [], diagnostic
@@ -396,6 +430,11 @@ def _candidate_from_provider_payload(
             if isinstance(payload.get("raw_excerpt"), str)
             else None,
         )
+    if extraction_method == "llm_multimodal":
+        _validate_multimodal_evidence(
+            evidence=evidence,
+            rendered_artifacts=rendered_artifacts,
+        )
     candidate_id = _candidate_id(
         record=record,
         field_name=field_name,
@@ -434,6 +473,25 @@ def _candidate_from_provider_payload(
         else [],
         validation_status=str(payload.get("validation_status") or "valid"),
     )
+
+
+def _validate_multimodal_evidence(
+    *,
+    evidence: FieldEvidence,
+    rendered_artifacts: list[RenderedPageArtifact],
+) -> None:
+    if evidence.visual_locator is None:
+        return
+    artifacts_by_id = {
+        artifact.rendered_artifact_id: artifact for artifact in rendered_artifacts
+    }
+    artifact = artifacts_by_id.get(evidence.visual_locator.rendered_artifact_id)
+    if artifact is None:
+        msg = "visual_locator references a rendered artifact that was not an input"
+        raise ValueError(msg)
+    if evidence.visual_locator.coordinate_system != artifact.coordinate_system:
+        msg = "visual_locator coordinate_system does not match rendered artifact"
+        raise ValueError(msg)
 
 
 def _provider_for_mode(
