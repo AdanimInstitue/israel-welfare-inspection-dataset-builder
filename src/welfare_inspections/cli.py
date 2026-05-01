@@ -606,7 +606,8 @@ def weekly_plan(
             request_delay_seconds=request_delay_seconds,
         )
     except UnsupportedWeeklyProductionMode as exc:
-        raise typer.BadParameter(str(exc)) from exc
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(code=2) from exc
     console.print(
         f"Weekly plan mode={plan.mode}; commands={len(plan.commands)}; "
         f"summary={plan.summary_path}"

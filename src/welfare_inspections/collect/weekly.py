@@ -130,7 +130,7 @@ def create_weekly_run_plan(
         request_delay_seconds=request_delay_seconds,
     )
     artifact_manifest = WeeklyArtifactManifest(
-        artifact_root=str(artifact_dir),
+        artifact_root=str(output_dir),
         upload_paths=_upload_paths(paths),
         required_review_artifacts=_required_review_artifacts(paths),
         intentionally_excluded=[
@@ -441,15 +441,19 @@ def _required_review_artifacts(paths: dict[str, Path]) -> list[str]:
 
 
 def _upload_paths(paths: dict[str, Path]) -> list[str]:
-    return [
-        str(paths["plan"]),
-        str(paths["summary"]),
-        str(paths["artifact_manifest"]),
-        str(paths["source_manifest"]),
-        str(paths["download_manifest"]),
-        str(paths["render_manifest"]),
-        *_required_review_artifacts(paths),
-    ]
+    return list(
+        dict.fromkeys(
+            [
+                str(paths["plan"]),
+                str(paths["summary"]),
+                str(paths["artifact_manifest"]),
+                str(paths["source_manifest"]),
+                str(paths["download_manifest"]),
+                str(paths["render_manifest"]),
+                *_required_review_artifacts(paths),
+            ]
+        )
+    )
 
 
 def _write_model_json(path: Path, model: BaseModel) -> None:

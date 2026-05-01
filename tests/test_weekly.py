@@ -65,6 +65,10 @@ def test_weekly_plan_builds_safe_dry_run_commands(tmp_path: Path) -> None:
     assert artifact_manifest_path.exists()
     assert json.loads(summary_path.read_text())["status"] == "planned"
     artifact_manifest = json.loads(artifact_manifest_path.read_text())
+    assert artifact_manifest["artifact_root"] == str(output_dir)
+    assert len(artifact_manifest["upload_paths"]) == len(
+        set(artifact_manifest["upload_paths"])
+    )
     assert "downloaded PDFs" in artifact_manifest["intentionally_excluded"]
     assert "prompt payloads" in artifact_manifest["intentionally_excluded"]
     assert any(
@@ -163,4 +167,19 @@ def test_cli_weekly_plan_production_mode_fails() -> None:
     )
 
     assert result.returncode != 0
-    assert "not supported" in result.stderr
+    assert "not supported" in result.stdout
+
+
+def test_cli_main_weekly_plan_invokes_planner(tmp_path: Path) -> None:
+    from welfare_inspections.cli import main
+
+    output_dir = tmp_path / "outputs" / "weekly"
+
+    assert main(["weekly-plan", "--output-dir", str(output_dir)]) == 0
+    assert (output_dir / "weekly_run_plan.json").exists()
+
+
+def test_cli_main_weekly_plan_production_mode_returns_error() -> None:
+    from welfare_inspections.cli import main
+
+    assert main(["weekly-plan", "--mode", "production"]) == 2
