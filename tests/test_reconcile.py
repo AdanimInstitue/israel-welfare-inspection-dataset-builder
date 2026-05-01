@@ -142,6 +142,54 @@ def test_reconcile_records_malformed_llm_candidate_provenance(
     )
 
 
+def test_reconcile_fails_when_explicit_llm_manifest_is_missing(
+    tmp_path: Path,
+) -> None:
+    record = _metadata_record("source-doc-missing-llm", "report-missing-llm")
+
+    with pytest.raises(ValueError, match="LLM candidate manifest does not exist"):
+        reconcile_report_metadata(
+            metadata_path=_write_metadata(tmp_path, [record]),
+            metadata_diagnostics_path=_write_metadata_diagnostics(tmp_path),
+            llm_candidates_path=tmp_path / "missing-llm.jsonl",
+            output_path=tmp_path / "reconciled.jsonl",
+            diagnostics_path=tmp_path / "reconciliation.json",
+        )
+
+
+def test_reconcile_matches_llm_candidates_by_source_when_report_id_is_stale(
+    tmp_path: Path,
+) -> None:
+    record = _metadata_record("source-doc-stale-report", "report-current")
+    llm_path = _write_llm_candidates(
+        tmp_path,
+        [
+            _llm_candidate(
+                source_document_id=record.source_document_id,
+                report_id="report-stale",
+                field_name="facility_name",
+                value="בית חם",
+            )
+        ],
+    )
+
+    reconciled, diagnostics = reconcile_report_metadata(
+        metadata_path=_write_metadata(tmp_path, [record]),
+        metadata_diagnostics_path=_write_metadata_diagnostics(tmp_path),
+        llm_candidates_path=llm_path,
+        output_path=tmp_path / "reconciled.jsonl",
+        diagnostics_path=tmp_path / "reconciliation.json",
+    )
+
+    decision = _decision(reconciled[0], "facility_name")
+    assert diagnostics.needs_review_decisions == 0
+    assert decision.decision_method == "deterministic_llm_agreement"
+    assert decision.candidate_ids == [
+        decision.accepted_candidate_id,
+        "llm-candidate-facility_name",
+    ]
+
+
 def test_reconcile_records_duplicate_candidate_ids(tmp_path: Path) -> None:
     record = _metadata_record("source-doc-duplicate-candidate", "report-dup-cand")
     candidate = _llm_candidate(
@@ -211,12 +259,13 @@ def test_backfill_dry_run_writes_diagnostics(tmp_path: Path) -> None:
 
     payload = json.loads((tmp_path / "backfill.json").read_text(encoding="utf-8"))
     assert len(reconciled) == 1
-    assert diagnostics.changed_count == len(record.fields)
+    assert diagnostics.changed_count == 0
+    assert diagnostics.no_baseline_count == len(record.fields)
     assert diagnostics.unresolved_count == 0
     assert diagnostics.input_hashes["reconciled_metadata_sha256"]
     assert diagnostics.prompt_versions["prompt_version"] == "1"
     assert payload["field_changes"][0]["before_value"] is None
-    assert payload["field_changes"][0]["status"] == "changed"
+    assert payload["field_changes"][0]["status"] == "no_baseline"
 
 
 def test_reconcile_and_backfill_reject_tracked_repo_output_paths(
@@ -284,6 +333,7 @@ def test_cli_reconcile_and_backfill_invoke_plumbing(
     output = capsys.readouterr().out
     assert "reconciled=1" in output
     assert "Backfill dry-run" in output
+    assert "no_baseline=1" in output
 
 
 def test_cli_reconcile_and_backfill_help_works() -> None:
@@ -317,6 +367,7 @@ def test_reconciliation_schema_files_exist_and_name_core_fields() -> None:
     assert "accepted_candidate_id" in decision_schema["properties"]
     assert "candidate_ids" in decision_schema["properties"]
     assert "input_hashes" in diagnostics_schema["properties"]
+    assert "no_baseline_count" in diagnostics_schema["properties"]
     assert "field_changes" in diagnostics_schema["properties"]
 
 
@@ -441,6 +492,7 @@ class SimpleReconciliationDiagnostics:
 
 class SimpleBackfillDiagnostics:
     field_changes = [object()]
-    changed_count = 1
+    changed_count = 0
+    no_baseline_count = 1
     unresolved_count = 0
     rejected_count = 0

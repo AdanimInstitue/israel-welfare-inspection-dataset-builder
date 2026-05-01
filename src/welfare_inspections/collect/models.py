@@ -489,7 +489,9 @@ class BackfillFieldChange(BaseModel):
     field_name: str = Field(min_length=1)
     before_value: str | date | int | float | None = None
     after_value: str | date | int | float | None = None
-    status: str = Field(pattern="^(changed|unchanged|unresolved|rejected)$")
+    status: str = Field(
+        pattern="^(changed|unchanged|unresolved|rejected|no_baseline)$"
+    )
     accepted_candidate_id: str | None = None
     candidate_ids: list[str] = Field(default_factory=list)
     decision_id: str | None = None
@@ -514,6 +516,7 @@ class BackfillRunDiagnostics(BaseModel):
     render_versions: dict[str, str | None] = Field(default_factory=dict)
     changed_count: int = 0
     unchanged_count: int = 0
+    no_baseline_count: int = 0
     unresolved_count: int = 0
     rejected_count: int = 0
     field_changes: list[BackfillFieldChange] = Field(default_factory=list)

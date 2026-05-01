@@ -137,11 +137,12 @@ reconciliation rules improve. A backfill is publishable only when it emits:
 - reason for any changed accepted value
 - model/prompt/schema versions used
 - source PDF, rendered page/crop, extracted text, and prompt input hashes used
-- counts of changed, unchanged, unresolved, and rejected fields
+- counts of `no_baseline`, changed, unchanged, unresolved, and rejected fields
 - the relevant LLM evaluation report for the new model/prompt/render stack
 - a data-repo PR summary suitable for human review
 
 PR 8 provides the first dry-run backfill diagnostics contract for these fields.
-It records before values as null because no published canonical input is read
-yet; later PRs that compare against data-repo outputs must populate real prior
-canonical values and still avoid silent overwrites.
+It records accepted decisions as `no_baseline` because no published canonical
+input is read yet; later PRs that compare against data-repo outputs must
+populate real prior canonical values before reporting fields as changed and
+still avoid silent overwrites.

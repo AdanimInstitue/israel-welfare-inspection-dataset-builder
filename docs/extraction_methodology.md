@@ -230,5 +230,5 @@ data-repo PR.
 The PR 8 `backfill` command is contract/plumbing only. It is dry-run by default
 and does not collect history, call live providers, publish data, or overwrite
 canonical outputs. It records input hashes, schema and reconciler versions,
-optional evaluation report references, and changed/unresolved/rejected counters
-so later historical backfills can be audited before any data-repo PR.
+optional evaluation report references, and `no_baseline`/unresolved/rejected
+counters so later historical backfills can be audited before any data-repo PR.

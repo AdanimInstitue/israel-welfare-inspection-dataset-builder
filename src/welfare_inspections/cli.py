@@ -546,6 +546,7 @@ def backfill(
     console.print(
         f"Backfill dry-run fields={len(diagnostics.field_changes)}; "
         f"changed={diagnostics.changed_count}; "
+        f"no_baseline={diagnostics.no_baseline_count}; "
         f"unresolved={diagnostics.unresolved_count}; "
         f"rejected={diagnostics.rejected_count}"
     )

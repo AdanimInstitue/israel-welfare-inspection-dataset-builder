@@ -64,7 +64,7 @@
           "title": "After Value"
         },
         "status": {
-          "pattern": "^(changed|unchanged|unresolved|rejected)$",
+          "pattern": "^(changed|unchanged|unresolved|rejected|no_baseline)$",
           "title": "Status",
           "type": "string"
         },
@@ -221,6 +221,11 @@
     "unchanged_count": {
       "default": 0,
       "title": "Unchanged Count",
+      "type": "integer"
+    },
+    "no_baseline_count": {
+      "default": 0,
+      "title": "No Baseline Count",
       "type": "integer"
     },
     "unresolved_count": {

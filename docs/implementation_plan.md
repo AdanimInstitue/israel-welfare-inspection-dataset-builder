@@ -217,7 +217,8 @@ Acceptance criteria:
   Done for deterministic-only acceptance and deterministic/LLM agreement.
 - Backfills are idempotent, resumable, and produce reviewable change summaries.
   Done as a resumable dry-run diagnostics contract with input hashes and
-  changed/unresolved/rejected counters.
+  `no_baseline`/unresolved/rejected counters until a later PR reads prior
+  canonical values.
 - Canonical exports identify accepted extraction methods and candidate IDs.
   Reconciled metadata sidecars now identify accepted extraction methods and LLM
   candidate IDs; PR 6 CSV/JSONL exports remain unchanged until publication

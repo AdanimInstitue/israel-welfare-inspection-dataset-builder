@@ -174,6 +174,8 @@ def run_backfill_dry_run(
                 diagnostics.changed_count += 1
             elif status == "unchanged":
                 diagnostics.unchanged_count += 1
+            elif status == "no_baseline":
+                diagnostics.no_baseline_count += 1
             elif status == "rejected":
                 diagnostics.rejected_count += 1
             else:
@@ -227,11 +229,21 @@ def _reconcile_one_report(
         deterministic_candidate = deterministic_by_field.get(field_name)
         if deterministic_candidate:
             candidates.append(deterministic_candidate)
-        candidates.extend(
-            llm_candidates.get((metadata_record.report_id, field_name), [])
+        report_llm_candidates = llm_candidates.get(
+            (metadata_record.report_id, field_name),
+            [],
         )
+        candidates.extend(report_llm_candidates)
+        report_llm_candidate_ids = {
+            candidate.candidate_id for candidate in report_llm_candidates
+        }
         candidates.extend(
-            llm_candidates.get((metadata_record.source_document_id, field_name), [])
+            candidate
+            for candidate in llm_candidates.get(
+                (metadata_record.source_document_id, field_name),
+                [],
+            )
+            if candidate.candidate_id not in report_llm_candidate_ids
         )
         unique_candidates = _deduplicate_candidates(
             candidates,
@@ -496,8 +508,11 @@ def _read_llm_candidates(
     path: Path | None,
     diagnostics: ReconciliationRunDiagnostics,
 ) -> list[ExtractionCandidate]:
-    if path is None or not path.exists():
+    if path is None:
         return []
+    if not path.exists():
+        msg = f"LLM candidate manifest does not exist: {path}"
+        raise ValueError(msg)
     candidates: list[ExtractionCandidate] = []
     for line_number, line in _iter_jsonl_lines(path):
         try:
@@ -520,15 +535,14 @@ def _llm_candidates_by_key(
 ) -> dict[tuple[str, str], list[ExtractionCandidate]]:
     by_key: dict[tuple[str, str], list[ExtractionCandidate]] = {}
     for candidate in candidates:
+        by_key.setdefault(
+            (candidate.source_document_id, candidate.field_name),
+            [],
+        ).append(candidate)
         if candidate.report_id:
             by_key.setdefault((candidate.report_id, candidate.field_name), []).append(
                 candidate
             )
-        else:
-            by_key.setdefault(
-                (candidate.source_document_id, candidate.field_name),
-                [],
-            ).append(candidate)
     return by_key
 
 
@@ -586,7 +600,7 @@ def _candidate_by_id(
 
 def _backfill_status(decision: ReconciliationDecision) -> str:
     if decision.decision_status == "accepted":
-        return "changed"
+        return "no_baseline"
     if decision.decision_status == "rejected":
         return "rejected"
     return "unresolved"

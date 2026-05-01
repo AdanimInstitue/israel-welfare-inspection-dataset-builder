@@ -228,9 +228,9 @@ PR 8 stores reconciliation sidecars in ignored local outputs:
   metadata, accepted extraction methods, LLM candidate IDs, decisions, and
   warnings.
 - `schemas/backfill_diagnostics.schema.json` for dry-run backfill summaries,
-  including before/after values, changed/unchanged/unresolved/rejected counts,
-  input hashes, model/prompt/render/schema versions, and evaluation report
-  references.
+  including before/after values, `no_baseline`/changed/unchanged/unresolved/
+  rejected counts, input hashes, model/prompt/render/schema versions, and
+  evaluation report references.
 
 The first reconciliation rules are conservative: deterministic-only values are
 accepted, deterministic and valid LLM candidates that agree are accepted with
