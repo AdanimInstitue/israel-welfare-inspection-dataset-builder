@@ -9,8 +9,9 @@ The project goal is to build a reproducible Python ETL pipeline that converts
 publicly published government PDF inspection and supervision reports into an
 open-access research dataset. Real source PDFs are not reliably parseable from
 embedded text alone, so the planned production pipeline combines deterministic
-extraction, multimodal LLM extraction, reconciliation, validation, and
-PR-based publication.
+extraction, multimodal LLM extraction, reproducible rendered-page artifacts,
+candidate reconciliation, LLM quality evaluation, validation, and PR-based
+publication.
 
 Canonical source portal:
 https://www.gov.il/he/departments/dynamiccollectors/molsa-supervision-frames-reports?skip=0
@@ -31,7 +32,8 @@ The builder currently supports manual discovery, download, embedded-text
 extraction, deterministic metadata parsing, schema validation, and local
 report-level exports. Planning now treats LLM-based extraction and
 reconciliation as required production stages before meaningful dataset
-publication.
+publication. LLM-derived values must carry immutable input provenance and pass
+evaluation, reconciliation, schema, and privacy gates before publication.
 
 ## Documentation
 

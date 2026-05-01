@@ -29,7 +29,9 @@ warnings.
 LLM candidate manifests and reconciliation decisions also require validation.
 At minimum, validation should reject candidates that lack source document IDs,
 page evidence, model/prompt version, extraction method, or schema-compatible
-normalized values.
+normalized values. LLM and OCR candidates should also fail validation when they
+lack immutable input identity, including source PDF SHA-256, prompt input hash,
+and rendered page/crop hashes where applicable.
 
 ## Row-Level Failure Handling
 
@@ -71,6 +73,12 @@ reconciliation decision, and extraction run.
 LLM extraction is required for production, but LLM output is not self-validating.
 Before publication:
 
+- a reviewed evaluation set must exercise representative real or synthetic PDFs
+- the evaluation report must identify schema, model, prompt, renderer,
+  preprocessor, and reconciler versions
+- field-level coverage and correctness must meet the active release thresholds
+- regressions against the last accepted model/prompt baseline must be explained
+  or blocked
 - every accepted LLM-derived value must include page evidence
 - every LLM call must identify model and prompt/template version
 - canonical rows must identify which fields used LLM-derived candidates
@@ -78,6 +86,10 @@ Before publication:
 - low-confidence or unsupported values must be marked `needs_review` or omitted
   from canonical publication
 - privacy checks must run on any extracted free-text fields before publication
+
+Mocked provider tests are required for deterministic CI, but they are not a
+quality gate by themselves. They only prove that the code can handle a shaped
+response.
 
 ## v0 Preview Quality Gate
 
@@ -103,5 +115,7 @@ reconciliation rules improve. A backfill is publishable only when it emits:
 - the new candidate values and accepted value
 - reason for any changed accepted value
 - model/prompt/schema versions used
+- source PDF, rendered page/crop, extracted text, and prompt input hashes used
 - counts of changed, unchanged, unresolved, and rejected fields
+- the relevant LLM evaluation report for the new model/prompt/render stack
 - a data-repo PR summary suitable for human review

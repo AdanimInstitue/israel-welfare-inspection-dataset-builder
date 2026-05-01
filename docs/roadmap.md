@@ -45,13 +45,15 @@ reconciliation, or privacy concerns.
 ## PR 7: LLM Extraction Contracts and Page Rendering
 
 Add PDF page rendering plus required schema-bound text and multimodal LLM
-candidate extraction. Keep CI offline with mocked LLM responses.
+candidate extraction. Define immutable rendered-page/input provenance and add
+offline LLM evaluation reporting. Keep CI offline with mocked LLM responses.
 
 ## PR 8: Candidate Reconciliation and Backfill
 
 Merge deterministic, LLM, OCR if present, and existing canonical candidates into
 validated canonical rows. Add explicit backfill routines for versioned
-historical reprocessing.
+historical reprocessing. Material conflicts remain `needs_review` unless
+deterministic rules or explicit agreement thresholds resolve them.
 
 ## PR 9: Weekly Workflow and Artifact Upload
 

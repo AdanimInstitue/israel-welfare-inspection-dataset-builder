@@ -64,10 +64,13 @@ put project design detail in `docs/`.
 - Multimodal LLM extraction should inspect rendered PDF pages when embedded
   text is insufficient, and every returned field must include source evidence
   such as page number, raw excerpt or visual locator, confidence, model name,
-  prompt/template version, and validation status.
+  prompt/template version, immutable input hashes, and validation status.
 - Merge deterministic and LLM-derived candidates conservatively. Preserve both
-  candidates when they conflict, emit diagnostics, and require validation before
-  publication.
+  candidates when they conflict, emit diagnostics, and keep material conflicts
+  as `needs_review` unless deterministic rules or explicit agreement thresholds
+  resolve them.
+- Treat LLM quality evaluation as a publication gate. Mocked LLM tests prove
+  integration behavior only; they do not prove extraction correctness.
 - Preserve provenance for every discovered document and every derived row.
 - Treat parse failures as row-level warnings where possible.
 - Keep Hebrew canonical text in logical order.

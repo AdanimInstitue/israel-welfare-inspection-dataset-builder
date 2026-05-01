@@ -132,8 +132,16 @@ extractors before reconciliation.
 | `extraction_method` | string | derived |
 | `extractor_version` | string | derived |
 | `model_name` | string/null | derived |
+| `model_version` | string/null | derived |
 | `prompt_id` | string/null | derived |
 | `prompt_version` | string/null | derived |
+| `prompt_input_sha256` | string/null | derived |
+| `source_pdf_sha256` | string/null | derived |
+| `text_input_sha256` | string/null | derived |
+| `rendered_artifact_ids` | array | derived |
+| `rendered_artifact_sha256s` | array | derived |
+| `renderer_version` | string/null | derived |
+| `preprocessor_version` | string/null | derived |
 | `input_artifact_refs` | array | derived |
 | `confidence` | number/null | derived |
 | `warnings` | array | derived |
@@ -141,6 +149,40 @@ extractors before reconciliation.
 
 `extraction_method` values should distinguish at least `deterministic`,
 `llm_text`, `llm_multimodal`, `ocr`, and `reconciler_llm`.
+
+`input_artifact_refs` is a convenience index, not the reproducibility contract.
+LLM and OCR candidates must also carry immutable hashes for the exact PDF, text,
+rendered image/crop, and prompt input artifacts that produced the value.
+
+## `rendered_page_artifacts`
+
+Tracks page images and crops used by multimodal LLM extraction.
+
+| Field | Type | Class |
+| --- | --- | --- |
+| `rendered_artifact_id` | string | derived |
+| `source_document_id` | string | derived |
+| `source_pdf_sha256` | string | derived |
+| `page_number` | integer | derived |
+| `artifact_type` | string | derived |
+| `parent_rendered_artifact_id` | string/null | derived |
+| `renderer_name` | string | derived |
+| `renderer_version` | string | derived |
+| `render_profile_id` | string | derived |
+| `render_profile_version` | string | derived |
+| `dpi` | integer | derived |
+| `colorspace` | string | derived |
+| `image_format` | string | derived |
+| `rotation_degrees` | integer | derived |
+| `crop_box` | object/null | derived |
+| `coordinate_system` | string | derived |
+| `width_px` | integer | derived |
+| `height_px` | integer | derived |
+| `image_sha256` | string | derived |
+| `local_path` | string | derived |
+
+`artifact_type` should distinguish `page` and `crop`. `coordinate_system` must
+match the `visual_locator` coordinate convention used by extraction candidates.
 
 ## `reconciliation_decisions`
 
@@ -164,6 +206,11 @@ Tracks how candidate values become accepted canonical values.
 Decision statuses should include accepted, unresolved, conflict, rejected, and
 needs_review. Publication should avoid silently emitting unresolved conflicts as
 clean canonical values.
+
+Material conflicts should remain `needs_review` unless deterministic rules or
+explicit agreement thresholds resolve them. A `reconciler_llm` decision may be
+stored as a candidate or decision aid, but it is not enough by itself to
+auto-accept a disputed value.
 
 ## `inspection_findings`
 

@@ -60,13 +60,15 @@ Generated dataset artifacts must not be committed to the builder repository.
 6. Parse deterministic top-level report metadata and detailed findings where
    reliable rules exist.
 7. Reconcile deterministic and LLM-derived candidates into canonical rows.
-8. Normalize Hebrew text, dates, facility names, facility types, districts,
+8. Run LLM evaluation and quality gates against reviewed fixtures and active
+   release thresholds.
+9. Normalize Hebrew text, dates, facility names, facility types, districts,
    administrations, visit types, and inspection fields.
-9. Validate canonical schemas.
-10. Export CSV, JSON, JSONL, and Parquet outputs.
-11. Preserve raw provenance, model diagnostics, parse diagnostics, and quality
+10. Validate canonical schemas.
+11. Export CSV, JSON, JSONL, and Parquet outputs.
+12. Preserve raw provenance, model diagnostics, parse diagnostics, and quality
     warnings.
-12. Open a PR into the paired data repository for publication.
+13. Open a PR into the paired data repository for publication.
 
 ## Extraction Strategy
 
@@ -84,14 +86,24 @@ and pypdf supports metadata/page structural checks.
 The LLM layer is not a loose fallback. It is a required extraction stage that
 should use both embedded text and rendered PDF pages, return strict JSON, and
 preserve evidence for each value. Each LLM extraction result must record model
-name, prompt/template version, source document ID, page number, evidence text or
-visual locator, confidence, warnings, and validation status.
+name, prompt/template version, immutable input hashes, source document ID, page
+number, evidence text or visual locator, confidence, warnings, and validation
+status. Rendered page artifacts need a versioned render profile, image checksums,
+and a stable coordinate system so visual locators remain reproducible.
 
 Canonical rows are produced by a reconciliation layer. The reconciler compares
 deterministic candidates, embedded-text LLM candidates, multimodal LLM
 candidates, and existing canonical values during backfills. It accepts values
 only when they pass schema validation and provenance requirements; conflicts are
-preserved as diagnostics instead of silently overwritten.
+preserved as diagnostics instead of silently overwritten. Material conflicts stay
+`needs_review` unless deterministic rules or explicit agreement thresholds
+resolve them; a reconciler LLM may propose, but must not be the only authority
+for accepting a disputed value.
+
+LLM quality is measured separately from mocked provider tests. Release planning
+requires an evaluation report with field-level coverage, correctness, and
+regressions for the active schema, model, prompt, renderer, and reconciler
+versions before publication.
 
 OCR remains optional infrastructure for future quality improvement, but it is
 not the main answer to the current PDF issue. When OCR is used, it should be
@@ -107,7 +119,8 @@ version.
 
 Every parsed row should retain enough context to audit it back to a source
 document, page, raw excerpt or visual locator, extraction method, model/prompt
-version where applicable, confidence score, and warning status.
+version where applicable, input artifact hashes, confidence score, and warning
+status.
 
 ## Weekly Incremental Jobs vs. Backfill Jobs
 
@@ -123,7 +136,8 @@ The project needs two distinct operating modes:
   compare old and new canonical values before publication.
 
 Both modes should produce diagnostics and review artifacts before data-repo
-publication. Backfills should not be hidden inside weekly jobs.
+publication, including LLM evaluation reports when LLM-derived fields are in
+scope. Backfills should not be hidden inside weekly jobs.
 
 ## Intended Builder Layout
 

@@ -31,6 +31,28 @@ OCR may still be useful later, but it is not the primary solution. If OCR is
 added, OCR output is another candidate source that must be reconciled and
 versioned like deterministic and LLM candidates.
 
+## Rendered Page Contract
+
+Multimodal extraction depends on stable rendered inputs. A rendered page or crop
+artifact must record:
+
+- source document ID and source PDF SHA-256
+- page number using the same 1-based numbering used in field evidence
+- renderer name and version
+- render profile ID and version
+- DPI, colorspace, image format, rotation, crop box, and any preprocessing
+- image width and height in pixels
+- coordinate system used by visual locators
+- rendered image SHA-256
+- local ignored artifact path
+
+The first implementation should prefer full-page PNG renderings at a fixed DPI
+before adding crops. If crops are added, the crop ID must be deterministic and
+the crop coordinates must be expressed in the parent page coordinate system.
+`visual_locator` values in candidates must reference the rendered page or crop
+artifact and use the documented coordinate system so evidence remains stable
+across backfills.
+
 ## LLM Extraction Contracts
 
 Every LLM call must request strict JSON matching a versioned schema. Free-form
@@ -46,7 +68,8 @@ Each candidate field returned by an LLM must include:
 - extraction method, such as `llm_text` or `llm_multimodal`
 - model name and model version where available
 - prompt/template ID and prompt version
-- input artifact references, such as text path, rendered page path, or checksum
+- source PDF SHA-256, text input hash, rendered page/crop hashes, prompt input
+  hash, and renderer/preprocessor versions where applicable
 - confidence
 - warnings and uncertainty notes
 
@@ -68,6 +91,8 @@ Rules:
 - Prefer values with stronger source evidence and schema-valid normalization.
 - Preserve all conflicting candidates and emit diagnostics when candidates
   disagree materially.
+- Keep material conflicts as `needs_review` unless deterministic rules or
+  explicit agreement thresholds resolve them.
 - Record the accepted source method and candidate IDs for every canonical field.
 - Treat missing evidence, malformed dates, invalid enums, or low-confidence
   values as warnings or validation failures.
@@ -75,7 +100,22 @@ Rules:
 Some merge decisions may themselves use an LLM, but that LLM must also return
 structured output with explicit reasoning, candidate references, and validation
 status. The merge LLM proposes decisions; schema validation and provenance
-checks enforce them.
+checks enforce them. A merge LLM is not sufficient authority to auto-accept a
+material conflict by itself.
+
+## LLM Evaluation Gate
+
+LLM extraction quality must be measured separately from mocked provider tests.
+The project should maintain a small reviewed evaluation set of real or
+representative PDFs, expected report-level fields, and known hard cases. The
+offline evaluator compares candidate manifests against expected values and
+emits field-level coverage, correctness, and regression summaries by schema,
+prompt, model, renderer, and reconciler version.
+
+Publication must be blocked when required evaluation thresholds fail, even if
+candidate JSON is schema-valid. Thresholds should be conservative at first and
+field-specific: a date field, facility name, facility ID, and free-text field do
+not have the same risk profile.
 
 ## Parser Contracts
 

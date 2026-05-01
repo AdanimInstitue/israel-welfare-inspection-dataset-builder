@@ -147,11 +147,17 @@ Tasks:
 
 - Add ignored local page rendering outputs for downloaded PDFs.
 - Add schema/Pydantic contracts for LLM extraction candidates and diagnostics.
+- Add schema/Pydantic contracts for rendered page artifacts, including render
+  settings, page/crop identity, checksums, and coordinate conventions.
 - Add a required-but-inert-by-default `welfare-inspections extract-llm` command
   that can run in production when provider configuration is present.
 - Support embedded-text and multimodal page-image inputs.
-- Store model name, prompt/template version, input artifact refs, page evidence,
-  confidence, warnings, and validation status for every candidate.
+- Store model name, prompt/template version, prompt input hash, input artifact
+  hashes, page evidence, confidence, warnings, and validation status for every
+  candidate.
+- Add a small reviewed LLM evaluation fixture set and an offline evaluator that
+  compares candidate outputs to expected field values without calling a live
+  provider.
 - Add mocked/offline tests only; no live LLM calls in CI.
 
 Acceptance criteria:
@@ -159,6 +165,11 @@ Acceptance criteria:
 - Production extraction fails closed if required LLM provider configuration is
   absent, unless explicitly run in dry-run/test mode.
 - LLM outputs are candidate manifests, not accepted canonical rows.
+- The evaluation report records model, prompt, renderer, schema, field-level
+  coverage, field-level correctness, and regressions against the last accepted
+  baseline.
+- Publication and backfill planning treat failed LLM evaluation thresholds as a
+  release blocker, even when schema validation passes.
 - No prompt, response, image, or PDF artifacts are committed to the builder
   repository.
 
@@ -180,6 +191,9 @@ Acceptance criteria:
 
 - Reconciliation never silently overwrites deterministic or previously
   published values.
+- Material conflicts remain `needs_review` unless resolved by deterministic
+  rules or explicit agreement thresholds; a reconciler LLM may propose a
+  decision but must not be the only authority for auto-accepting a conflict.
 - Backfills are idempotent, resumable, and produce reviewable change summaries.
 - Canonical exports identify accepted extraction methods and candidate IDs.
 
@@ -192,6 +206,7 @@ Tasks:
 - Reuse existing artifacts when source checksum and schema/model/prompt/render
   versions are unchanged.
 - Upload diagnostics and review artifacts without publishing directly.
+- Upload LLM evaluation reports with extraction and reconciliation artifacts.
 
 Acceptance criteria:
 
@@ -199,6 +214,8 @@ Acceptance criteria:
   are missing.
 - CI remains offline and deterministic.
 - Weekly jobs do not run historical backfills implicitly.
+- Data-repo publication remains blocked when required LLM evaluation, schema,
+  reconciliation, or privacy gates fail.
 
 ## PR 10: Publish PR Flow Into Data Repo
 
@@ -207,7 +224,7 @@ Tasks:
 - Implement publication automation that opens a PR into
   `AdanimInstitue/israel-welfare-inspection-dataset`.
 - Include provenance, diagnostics summaries, LLM/model/prompt metadata,
-  disclaimers, and release notes.
+  LLM evaluation reports, disclaimers, and release notes.
 - Never push directly to data repo `main`.
 
 Acceptance criteria:
