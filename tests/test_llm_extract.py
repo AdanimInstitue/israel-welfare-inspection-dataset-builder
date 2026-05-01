@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from welfare_inspections import cli
 from welfare_inspections.collect.llm_extract import (
     MissingProviderConfiguration,
+    _prompt_input_sha256,
     evaluate_llm_candidates,
     extract_llm_candidates,
 )
@@ -325,6 +326,29 @@ def test_extract_llm_rejects_multimodal_visual_locator_coordinate_mismatch(
     assert "coordinate_system" in diagnostics.record_diagnostics[0].warnings[0]
 
 
+def test_prompt_input_hash_sorts_rendered_artifacts(tmp_path: Path) -> None:
+    record = _record("prompt-hash")
+    first = _rendered_artifact(tmp_path, record, "rendered-page-a", 1, _sha("a"))
+    second = _rendered_artifact(tmp_path, record, "rendered-page-b", 2, _sha("b"))
+
+    ordered_hash = _prompt_input_sha256(
+        record=record,
+        text_sha256=_sha("text"),
+        rendered_artifacts=[first, second],
+        prompt_id="prompt",
+        prompt_version="1",
+    )
+    reversed_hash = _prompt_input_sha256(
+        record=record,
+        text_sha256=_sha("text"),
+        rendered_artifacts=[second, first],
+        prompt_id="prompt",
+        prompt_version="1",
+    )
+
+    assert ordered_hash == reversed_hash
+
+
 def test_extract_llm_production_mode_fails_closed_without_provider_config(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -600,30 +624,38 @@ def _write_render_manifest(tmp_path: Path, record: SourceDocumentRecord) -> Path
     path = tmp_path / "rendered_pages.jsonl"
     write_rendered_page_manifest(
         path,
-        [
-            RenderedPageArtifact(
-                rendered_artifact_id="rendered-page-x",
-                source_document_id=record.source_document_id,
-                source_pdf_sha256=record.pdf_sha256 or _sha("pdf"),
-                page_number=1,
-                artifact_type="page",
-                renderer_name="pymupdf",
-                renderer_version="1",
-                render_profile_id="default-v1",
-                render_profile_version="1",
-                dpi=144,
-                colorspace="rgb",
-                image_format="png",
-                rotation_degrees=0,
-                coordinate_system="pixel_top_left_origin_1_based_page",
-                width_px=100,
-                height_px=200,
-                image_sha256=_sha("image"),
-                local_path=str(tmp_path / "page.png"),
-            )
-        ],
+        [_rendered_artifact(tmp_path, record, "rendered-page-x", 1, _sha("image"))],
     )
     return path
+
+
+def _rendered_artifact(
+    tmp_path: Path,
+    record: SourceDocumentRecord,
+    artifact_id: str,
+    page_number: int,
+    image_sha256: str,
+) -> RenderedPageArtifact:
+    return RenderedPageArtifact(
+        rendered_artifact_id=artifact_id,
+        source_document_id=record.source_document_id,
+        source_pdf_sha256=record.pdf_sha256 or _sha("pdf"),
+        page_number=page_number,
+        artifact_type="page",
+        renderer_name="pymupdf",
+        renderer_version="1",
+        render_profile_id="default-v1",
+        render_profile_version="1",
+        dpi=144,
+        colorspace="rgb",
+        image_format="png",
+        rotation_degrees=0,
+        coordinate_system="pixel_top_left_origin_1_based_page",
+        width_px=100,
+        height_px=200,
+        image_sha256=image_sha256,
+        local_path=str(tmp_path / f"{artifact_id}.png"),
+    )
 
 
 def _write_jsonl(path: Path, records: list[dict[str, object]]) -> None:

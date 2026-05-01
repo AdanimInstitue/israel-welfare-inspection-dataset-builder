@@ -15,6 +15,7 @@ from welfare_inspections.collect.manifest import (
 )
 from welfare_inspections.collect.models import (
     RenderedPageArtifact,
+    RenderProfile,
     SourceDocumentRecord,
 )
 from welfare_inspections.collect.pdf_download import sha256_file
@@ -156,6 +157,32 @@ def test_render_pages_rejects_generated_outputs_inside_tracked_repo_paths(
             output_manifest_path=repo_root / "schemas" / "rendered.jsonl",
             diagnostics_path=tmp_path / "diagnostics.json",
             page_output_dir=tmp_path / "rendered",
+        )
+
+
+def test_render_pages_rejects_unsupported_render_profile_metadata(
+    tmp_path: Path,
+) -> None:
+    pdf_path = _synthetic_pdf(tmp_path / "report.pdf", ["A"])
+    record = _record("unsupported-profile", pdf_path)
+    manifest_path = tmp_path / "download_manifest.jsonl"
+    write_source_manifest(manifest_path, [record])
+
+    with pytest.raises(ValueError, match="colorspace"):
+        render_pages_from_manifest(
+            source_manifest_path=manifest_path,
+            output_manifest_path=tmp_path / "rendered.jsonl",
+            diagnostics_path=tmp_path / "diagnostics.json",
+            page_output_dir=tmp_path / "rendered",
+            render_profile=RenderProfile(
+                render_profile_id="gray-v1",
+                render_profile_version="1",
+                dpi=144,
+                colorspace="gray",
+                image_format="png",
+                rotation_degrees=0,
+                coordinate_system="pixel_top_left_origin_1_based_page",
+            ),
         )
 
 

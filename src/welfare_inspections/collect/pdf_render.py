@@ -47,6 +47,7 @@ def render_pages_from_manifest(
     overwrite: bool = False,
 ) -> tuple[list[RenderedPageArtifact], PageRenderRunDiagnostics]:
     """Render downloaded PDFs from a PR 3 manifest into local page images."""
+    _validate_supported_render_profile(render_profile)
     validate_local_output_path(output_manifest_path, label="Render output_manifest")
     validate_local_output_path(diagnostics_path, label="Render diagnostics")
     validate_local_output_path(page_output_dir, label="Render page_output_dir")
@@ -91,6 +92,22 @@ def render_pages_from_manifest(
         failed=diagnostics.failed_records,
     )
     return artifacts, diagnostics
+
+
+def _validate_supported_render_profile(render_profile: RenderProfile) -> None:
+    unsupported: list[str] = []
+    if render_profile.colorspace.lower() != "rgb":
+        unsupported.append("colorspace")
+    if render_profile.image_format.lower() != "png":
+        unsupported.append("image_format")
+    if render_profile.rotation_degrees != 0:
+        unsupported.append("rotation_degrees")
+    if unsupported:
+        msg = (
+            "Unsupported render profile settings for PR 7 renderer: "
+            + ", ".join(unsupported)
+        )
+        raise ValueError(msg)
 
 
 def _render_record(

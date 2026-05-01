@@ -594,7 +594,14 @@ def _prompt_input_sha256(
                 "rendered_artifact_id": artifact.rendered_artifact_id,
                 "image_sha256": artifact.image_sha256,
             }
-            for artifact in rendered_artifacts
+            for artifact in sorted(
+                rendered_artifacts,
+                key=lambda artifact: (
+                    artifact.source_document_id,
+                    artifact.page_number,
+                    artifact.rendered_artifact_id,
+                ),
+            )
         ],
         "prompt_id": prompt_id,
         "prompt_version": prompt_version,
