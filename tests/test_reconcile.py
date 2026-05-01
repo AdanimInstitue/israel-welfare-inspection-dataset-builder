@@ -8,12 +8,21 @@ from hashlib import sha256
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from welfare_inspections import cli
+from welfare_inspections.collect.manifest import (
+    read_reconciled_metadata_manifest,
+    write_reconciled_metadata_manifest,
+)
 from welfare_inspections.collect.models import (
+    BackfillFieldChange,
+    BackfillRunDiagnostics,
+    ExtractionCandidate,
     MetadataField,
     MetadataParseRunDiagnostics,
     MetadataParseWarning,
+    ReconciliationDecision,
     ReportMetadataRecord,
 )
 from welfare_inspections.collect.reconcile import (
@@ -142,6 +151,60 @@ def test_reconcile_records_malformed_llm_candidate_provenance(
     )
 
 
+def test_extraction_candidate_requires_method_specific_llm_identity() -> None:
+    llm_text = _extraction_candidate_payload(extraction_method="llm_text")
+    llm_text.pop("text_input_sha256")
+
+    with pytest.raises(ValidationError, match="text_input_sha256"):
+        ExtractionCandidate.model_validate(llm_text)
+
+    multimodal = _extraction_candidate_payload(
+        extraction_method="llm_multimodal",
+    )
+    multimodal["text_input_sha256"] = None
+    multimodal["rendered_artifact_ids"] = []
+
+    with pytest.raises(ValidationError, match="rendered_artifact_ids"):
+        ExtractionCandidate.model_validate(multimodal)
+
+    mismatched = _extraction_candidate_payload(
+        extraction_method="llm_multimodal",
+    )
+    mismatched["text_input_sha256"] = None
+    mismatched["rendered_artifact_sha256s"] = [_sha("rendered-a"), _sha("rendered-b")]
+
+    with pytest.raises(ValidationError, match="Rendered artifact ID"):
+        ExtractionCandidate.model_validate(mismatched)
+
+
+def test_extraction_candidate_allows_reconciler_llm_method() -> None:
+    candidate = ExtractionCandidate.model_validate(
+        _extraction_candidate_payload(extraction_method="reconciler_llm")
+    )
+
+    assert candidate.extraction_method == "reconciler_llm"
+
+
+def test_extraction_candidate_records_missing_evidence_warning() -> None:
+    payload = _extraction_candidate_payload(extraction_method="deterministic")
+    payload["raw_excerpt"] = None
+
+    candidate = ExtractionCandidate.model_validate(payload)
+
+    assert "candidate_has_no_field_evidence" in candidate.warnings
+
+
+def test_extraction_candidate_rejects_malformed_date_normalization() -> None:
+    payload = _extraction_candidate_payload(
+        extraction_method="deterministic",
+        field_name="visit_date",
+        normalized_value="2026-99-99",
+    )
+
+    with pytest.raises(ValidationError, match="ISO date"):
+        ExtractionCandidate.model_validate(payload)
+
+
 def test_reconcile_fails_when_explicit_llm_manifest_is_missing(
     tmp_path: Path,
 ) -> None:
@@ -230,6 +293,50 @@ def test_reconcile_records_duplicate_decision_ids_for_duplicate_reports(
     assert diagnostics.record_diagnostics[-1].status == "duplicate_report_id"
 
 
+def test_reconcile_records_malformed_metadata_rows_as_diagnostics(
+    tmp_path: Path,
+) -> None:
+    payload = _metadata_record("source-doc-malformed", "report-malformed").model_dump(
+        mode="json"
+    )
+    del payload["report_id"]
+
+    _, diagnostics = reconcile_report_metadata(
+        metadata_path=_write_jsonl(tmp_path / "metadata.jsonl", [payload]),
+        metadata_diagnostics_path=_write_metadata_diagnostics(tmp_path),
+        output_path=tmp_path / "reconciled.jsonl",
+        diagnostics_path=tmp_path / "reconciliation.json",
+    )
+
+    assert diagnostics.validation_failed_records == 1
+    assert diagnostics.record_diagnostics[0].status == "validation_failed"
+    assert any(
+        "report_id" in error
+        for error in diagnostics.record_diagnostics[0].errors
+    )
+
+
+def test_reconciled_metadata_manifest_round_trip_and_invalid_rows(
+    tmp_path: Path,
+) -> None:
+    record = _metadata_record("source-doc-manifest", "report-manifest")
+    reconciled, _ = reconcile_report_metadata(
+        metadata_path=_write_metadata(tmp_path, [record]),
+        metadata_diagnostics_path=_write_metadata_diagnostics(tmp_path),
+        output_path=tmp_path / "reconciled.jsonl",
+        diagnostics_path=tmp_path / "reconciliation.json",
+    )
+    round_trip_path = tmp_path / "round-trip.jsonl"
+    write_reconciled_metadata_manifest(round_trip_path, reconciled)
+
+    assert read_reconciled_metadata_manifest(round_trip_path) == reconciled
+
+    invalid_path = tmp_path / "invalid-reconciled.jsonl"
+    invalid_path.write_text("{\"report_id\": 1}\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="Invalid reconciled metadata JSONL"):
+        read_reconciled_metadata_manifest(invalid_path)
+
+
 def test_backfill_dry_run_writes_diagnostics(tmp_path: Path) -> None:
     record = _metadata_record("source-doc-backfill", "report-backfill")
     reconciled, _ = reconcile_report_metadata(
@@ -266,6 +373,76 @@ def test_backfill_dry_run_writes_diagnostics(tmp_path: Path) -> None:
     assert diagnostics.prompt_versions["prompt_version"] == "1"
     assert payload["field_changes"][0]["before_value"] is None
     assert payload["field_changes"][0]["status"] == "no_baseline"
+
+
+def test_backfill_dry_run_counts_rejected_and_unresolved_decisions(
+    tmp_path: Path,
+) -> None:
+    record = _metadata_record("source-doc-backfill-status", "report-backfill-status")
+    reconciled, _ = reconcile_report_metadata(
+        metadata_path=_write_metadata(tmp_path, [record]),
+        metadata_diagnostics_path=_write_metadata_diagnostics(tmp_path),
+        output_path=tmp_path / "reconciled.jsonl",
+        diagnostics_path=tmp_path / "reconciliation.json",
+    )
+    reconciled_record = reconciled[0]
+    reconciled_record.decisions = [
+        ReconciliationDecision(
+            decision_id="decision-rejected",
+            report_id=reconciled_record.report_id,
+            source_document_id=reconciled_record.source_document_id,
+            field_name="facility_name",
+            decision_status="rejected",
+            decision_method="test_rejection",
+            schema_version="reconciliation-v1",
+            reconciler_version="reconciler-v1",
+        ),
+        ReconciliationDecision(
+            decision_id="decision-unresolved",
+            report_id=reconciled_record.report_id,
+            source_document_id=reconciled_record.source_document_id,
+            field_name="visit_date",
+            decision_status="unresolved",
+            decision_method="test_unresolved",
+            schema_version="reconciliation-v1",
+            reconciler_version="reconciler-v1",
+        ),
+    ]
+    write_reconciled_metadata_manifest(tmp_path / "reconciled.jsonl", reconciled)
+
+    diagnostics = run_backfill_dry_run(
+        reconciled_metadata_path=tmp_path / "reconciled.jsonl",
+        output_path=tmp_path / "backfill.json",
+    )
+
+    assert diagnostics.rejected_count == 1
+    assert diagnostics.unresolved_count == 1
+    assert {change.status for change in diagnostics.field_changes} == {
+        "rejected",
+        "unresolved",
+    }
+
+
+def test_backfill_diagnostics_accepts_unchanged_status() -> None:
+    diagnostics = BackfillRunDiagnostics(
+        reconciled_metadata_path="outputs/reconciled.jsonl",
+        output_path="outputs/backfill.json",
+        schema_version="reconciliation-v1",
+        reconciler_version="reconciler-v1",
+        unchanged_count=1,
+        field_changes=[
+            BackfillFieldChange(
+                report_id="report-unchanged",
+                source_document_id="source-doc-unchanged",
+                field_name="facility_name",
+                before_value="בית חם",
+                after_value="בית חם",
+                status="unchanged",
+            )
+        ],
+    )
+
+    assert diagnostics.unchanged_count == 1
 
 
 def test_reconcile_and_backfill_reject_tracked_repo_output_paths(
@@ -336,6 +513,11 @@ def test_cli_reconcile_and_backfill_invoke_plumbing(
     assert "no_baseline=1" in output
 
 
+def test_cli_backfill_rejects_non_dry_run() -> None:
+    with pytest.raises(Exception, match="dry-run"):
+        cli.backfill(dry_run=False)
+
+
 def test_cli_reconcile_and_backfill_help_works() -> None:
     for command, expected in [
         ("reconcile", "reconcile deterministic"),
@@ -369,6 +551,14 @@ def test_reconciliation_schema_files_exist_and_name_core_fields() -> None:
     assert "input_hashes" in diagnostics_schema["properties"]
     assert "no_baseline_count" in diagnostics_schema["properties"]
     assert "field_changes" in diagnostics_schema["properties"]
+
+    candidate_schema = json.loads(
+        (repo_root / "schemas/extraction_candidate.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    method_pattern = candidate_schema["properties"]["extraction_method"]["pattern"]
+    assert "reconciler_llm" in method_pattern
 
 
 def _metadata_record(source_document_id: str, report_id: str) -> ReportMetadataRecord:
@@ -441,6 +631,34 @@ def _llm_candidate(
         "confidence": 0.91,
         "validation_status": "valid",
         "validation_errors": [],
+    }
+
+
+def _extraction_candidate_payload(
+    *,
+    extraction_method: str,
+    field_name: str = "facility_name",
+    normalized_value: str = "בית חם",
+) -> dict[str, object]:
+    return {
+        "candidate_id": f"candidate-{extraction_method}-{field_name}",
+        "source_document_id": "source-doc-candidate",
+        "report_id": "report-candidate",
+        "field_name": field_name,
+        "raw_value": str(normalized_value),
+        "normalized_value": normalized_value,
+        "page_number": 1,
+        "raw_excerpt": str(normalized_value),
+        "extraction_method": extraction_method,
+        "extractor_version": "test-v1",
+        "source_pdf_sha256": _sha("pdf-candidate"),
+        "text_input_sha256": _sha("text-candidate"),
+        "rendered_artifact_ids": ["rendered-page-1"],
+        "rendered_artifact_sha256s": [_sha("rendered-page-1")],
+        "prompt_id": "prompt",
+        "prompt_version": "1",
+        "prompt_input_sha256": _sha("prompt-candidate"),
+        "confidence": 0.8,
     }
 
 

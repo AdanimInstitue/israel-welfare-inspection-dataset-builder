@@ -148,7 +148,8 @@ extractors before reconciliation.
 | `created_at` | datetime | derived |
 
 `extraction_method` values should distinguish at least `deterministic`,
-`llm_text`, `llm_multimodal`, `ocr`, and `reconciler_llm`.
+`llm_text`, `llm_multimodal`, `ocr`, `existing_canonical`, and
+`reconciler_llm`.
 
 `input_artifact_refs` is a convenience index, not the reproducibility contract.
 LLM and OCR candidates must also carry immutable hashes for the exact PDF, text,
@@ -222,6 +223,8 @@ auto-accept a disputed value.
 PR 8 stores reconciliation sidecars in ignored local outputs:
 
 - `schemas/reconciliation_decision.schema.json` for each field-level decision.
+- `schemas/extraction_candidate.schema.json` for the common compatibility
+  candidate contract used by reconciliation.
 - `schemas/reconciliation_diagnostics.schema.json` for run and record
   diagnostics, including duplicate candidate IDs and duplicate decision IDs.
 - `schemas/reconciled_report_metadata.schema.json` for report-level reconciled

@@ -333,7 +333,10 @@ class ExtractionCandidate(BaseModel):
     raw_excerpt: str | None = None
     visual_locator: VisualLocator | None = None
     extraction_method: str = Field(
-        pattern="^(deterministic|llm_text|llm_multimodal|ocr|existing_canonical)$"
+        pattern=(
+            "^(deterministic|llm_text|llm_multimodal|ocr|existing_canonical|"
+            "reconciler_llm)$"
+        )
     )
     extractor_version: str = Field(min_length=1)
     model_name: str | None = None
@@ -372,7 +375,11 @@ class ExtractionCandidate(BaseModel):
                     "when provided as a string."
                 )
                 raise ValueError(msg) from exc
-        if self.extraction_method.startswith("llm_"):
+        if self.extraction_method in {
+            "llm_text",
+            "llm_multimodal",
+            "reconciler_llm",
+        }:
             missing: list[str] = []
             if not self.source_pdf_sha256:
                 missing.append("source_pdf_sha256")
@@ -382,6 +389,21 @@ class ExtractionCandidate(BaseModel):
                 missing.append("prompt_id")
             if not self.prompt_version:
                 missing.append("prompt_version")
+            if self.extraction_method == "llm_text" and not self.text_input_sha256:
+                missing.append("text_input_sha256")
+            if self.extraction_method == "llm_multimodal":
+                if not self.rendered_artifact_ids:
+                    missing.append("rendered_artifact_ids")
+                if not self.rendered_artifact_sha256s:
+                    missing.append("rendered_artifact_sha256s")
+                if (
+                    self.rendered_artifact_ids
+                    and self.rendered_artifact_sha256s
+                    and len(self.rendered_artifact_ids)
+                    != len(self.rendered_artifact_sha256s)
+                ):
+                    msg = "Rendered artifact ID and hash counts must match."
+                    raise ValueError(msg)
             if missing:
                 msg = "LLM candidate missing provenance: " + ", ".join(missing)
                 raise ValueError(msg)
