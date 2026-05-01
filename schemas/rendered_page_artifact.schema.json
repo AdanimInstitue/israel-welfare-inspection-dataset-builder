@@ -66,5 +66,25 @@
     },
     "local_path": { "type": "string", "minLength": 1 },
     "rendered_at": { "type": "string", "format": "date-time" }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "artifact_type": { "const": "page" }
+        }
+      },
+      "then": {
+        "properties": {
+          "crop_box": { "type": "null" }
+        }
+      },
+      "else": {
+        "properties": {
+          "crop_box": { "type": "object" }
+        },
+        "required": ["crop_box"]
+      }
+    }
+  ]
 }

@@ -329,16 +329,22 @@ def extract_llm(
         Path | None,
         typer.Option(
             "--text-diagnostics",
-            help="Path to PR 4 embedded text extraction diagnostics JSON.",
+            help=(
+                "Optional path to PR 4 embedded text extraction diagnostics "
+                "JSON. If omitted, no text diagnostics are used."
+            ),
         ),
-    ] = Path("outputs/text_extraction_diagnostics.json"),
+    ] = None,
     render_manifest: Annotated[
         Path | None,
         typer.Option(
             "--render-manifest",
-            help="Path to rendered page artifact manifest JSONL.",
+            help=(
+                "Optional path to rendered page artifact manifest JSONL. "
+                "If omitted, no rendered artifacts are used."
+            ),
         ),
-    ] = Path("outputs/rendered_pages_manifest.jsonl"),
+    ] = None,
     output: Annotated[
         Path,
         typer.Option(

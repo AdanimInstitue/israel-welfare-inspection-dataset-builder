@@ -548,7 +548,7 @@ def _read_evaluation_fixtures(path: Path | None) -> list[EvaluationExpectedField
 def _text_diagnostics_by_source(
     path: Path | None,
 ) -> dict[str, TextExtractionRecordDiagnostic]:
-    if path is None:
+    if path is None or not path.exists():
         return {}
     diagnostics = read_text_extraction_diagnostics(path)
     return {
@@ -560,7 +560,7 @@ def _text_diagnostics_by_source(
 def _rendered_artifacts_by_source(
     path: Path | None,
 ) -> dict[str, list[RenderedPageArtifact]]:
-    if path is None:
+    if path is None or not path.exists():
         return {}
     artifacts_by_source: dict[str, list[RenderedPageArtifact]] = {}
     for artifact in read_rendered_page_manifest(path):

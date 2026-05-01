@@ -62,6 +62,18 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["page_number", "raw_excerpt", "visual_locator"],
+      "anyOf": [
+        {
+          "properties": {
+            "raw_excerpt": { "type": "string", "minLength": 1 }
+          }
+        },
+        {
+          "properties": {
+            "visual_locator": { "type": "object" }
+          }
+        }
+      ],
       "properties": {
         "page_number": { "type": ["integer", "null"], "minimum": 1 },
         "raw_excerpt": { "type": ["string", "null"] },
@@ -97,5 +109,36 @@
     "validation_status": { "enum": ["valid", "invalid", "needs_review"] },
     "validation_errors": { "type": "array", "items": { "type": "string" } },
     "created_at": { "type": "string", "format": "date-time" }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "extraction_method": { "const": "llm_text" }
+        }
+      },
+      "then": {
+        "properties": {
+          "text_input_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "required": ["text_input_sha256"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "extraction_method": { "const": "llm_multimodal" }
+        }
+      },
+      "then": {
+        "properties": {
+          "rendered_artifact_ids": { "minItems": 1 },
+          "rendered_artifact_sha256s": { "minItems": 1 }
+        }
+      }
+    }
+  ]
 }

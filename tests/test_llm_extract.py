@@ -80,6 +80,26 @@ def test_extract_llm_dry_run_writes_empty_candidates_and_diagnostics(
     ]
 
 
+def test_extract_llm_treats_missing_optional_inputs_as_empty(
+    tmp_path: Path,
+) -> None:
+    record = _record("missing-optional-inputs")
+    manifest_path = tmp_path / "download_manifest.jsonl"
+    write_source_manifest(manifest_path, [record])
+
+    candidates, diagnostics = extract_llm_candidates(
+        source_manifest_path=manifest_path,
+        text_diagnostics_path=tmp_path / "missing_text_diagnostics.json",
+        render_manifest_path=tmp_path / "missing_render_manifest.jsonl",
+        output_path=tmp_path / "candidates.jsonl",
+        diagnostics_path=tmp_path / "diagnostics.json",
+        mode="dry-run",
+    )
+
+    assert candidates == []
+    assert diagnostics.record_diagnostics[0].status == "dry_run"
+
+
 def test_extract_llm_mock_response_validates_candidates_and_eval_report(
     tmp_path: Path,
 ) -> None:
@@ -431,6 +451,32 @@ def test_cli_extract_llm_invokes_extractor(
     assert "Processed 1 source records" in capsys.readouterr().out
 
 
+def test_cli_extract_llm_defaults_optional_inputs_to_none(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def fake_extract_llm_candidates(**kwargs: object) -> object:
+        calls.append(kwargs)
+        return [], SimpleLLMDiagnostics()
+
+    monkeypatch.setattr(cli, "extract_llm_candidates", fake_extract_llm_candidates)
+
+    cli.extract_llm(
+        source_manifest=tmp_path / "download.jsonl",
+        output=tmp_path / "candidates.jsonl",
+        diagnostics=tmp_path / "diagnostics.json",
+        eval_fixtures=None,
+        eval_report=None,
+        mode="dry-run",
+        mock_response_path=None,
+    )
+
+    assert calls[0]["text_diagnostics_path"] is None
+    assert calls[0]["render_manifest_path"] is None
+
+
 def test_cli_extract_llm_help_works() -> None:
     result = subprocess.run(
         [sys.executable, "-m", "welfare_inspections.cli", "extract-llm", "--help"],
@@ -441,6 +487,41 @@ def test_cli_extract_llm_help_works() -> None:
 
     assert result.returncode == 0
     assert "LLM extraction" in result.stdout
+
+
+def test_schema_contracts_include_runtime_invariants() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    llm_schema = json.loads(
+        (repo_root / "schemas/llm_extraction_candidate.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    render_schema = json.loads(
+        (repo_root / "schemas/rendered_page_artifact.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    field_evidence = llm_schema["properties"]["field_evidence"]
+    assert "anyOf" in field_evidence
+    assert any(
+        option["properties"].get("raw_excerpt", {}).get("type") == "string"
+        for option in field_evidence["anyOf"]
+    )
+    assert any(
+        rule["if"]["properties"]["extraction_method"]["const"] == "llm_text"
+        for rule in llm_schema["allOf"]
+    )
+    assert any(
+        rule["if"]["properties"]["extraction_method"]["const"] == "llm_multimodal"
+        for rule in llm_schema["allOf"]
+    )
+    assert render_schema["allOf"][0]["if"]["properties"]["artifact_type"][
+        "const"
+    ] == "page"
+    assert render_schema["allOf"][0]["then"]["properties"]["crop_box"][
+        "type"
+    ] == "null"
 
 
 def _candidate_payload(
