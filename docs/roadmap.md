@@ -88,6 +88,17 @@ artifacts only and does not publish to the paired data repository.
 Implement publication automation that opens a PR into the paired data repository
 instead of pushing directly to main.
 
+Implemented as PR 10 planning-first publication plumbing. The
+`publish-plan` command reads reviewed local artifacts, evaluates publication
+gates, and writes ignored planning sidecars, data-repo PR body text, release
+notes, and diagnostics. Dry-run mode is reviewable without credentials.
+Production mode fails closed unless reviewed inputs exist, explicit human
+approval is provided, diagnostics and LLM evaluation gates pass, and GitHub
+credentials are available. The planned data-repo branch targets
+`AdanimInstitue/israel-welfare-inspection-dataset` through a PR and never
+pushes to `main`. Publication remains separate from the weekly artifact
+workflow.
+
 ## PR 11+: Detailed Findings Extraction, OCR, Quality Dashboards
 
 Expand finding-level extraction, optional OCR candidate generation, quality

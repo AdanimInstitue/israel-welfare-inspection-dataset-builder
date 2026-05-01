@@ -131,6 +131,19 @@ review, and blocks production weekly mode until live LLM provider calls and
 real incremental reuse exist. It does not commit artifacts, publish data, run
 deterministic exports, or launch historical backfills implicitly.
 
+PR 10 adds a planning-first publication layer without connecting publication to
+weekly automation. The `publish-plan` command reads reviewed local artifacts,
+evaluates publication gates, and writes ignored planning sidecars for a paired
+data-repo branch and PR. Dry-run mode can produce blocked diagnostics for
+review. Production mode fails closed before any data-repo PR action unless
+reviewed inputs exist, human approval is explicit, diagnostics and LLM
+evaluation gates are clear, and GitHub credentials are available. The plan
+generates proposed data-repo PR body and release notes that distinguish
+official Ministry source PDFs from unofficial derived parsed data, list
+diagnostics and LLM metadata, and exclude downloaded PDFs, rendered page images,
+prompt payloads, raw LLM responses, finding-level rows, suspected sensitive
+personal data, and builder-repository generated outputs.
+
 OCR remains optional infrastructure for future quality improvement, but it is
 not the main answer to the current PDF issue. When OCR is used, it should be
 treated as another candidate source and reconciled with the same provenance and
@@ -171,6 +184,12 @@ render-pages, extract-llm, reconcile, and dry-run backfill-summary commands,
 but the backfill step is only a diagnostics summary over the current run
 outputs. Historical reprocessing and reconciled canonical exports remain
 explicit future work.
+
+PR 10 keeps publication as a separate manual-dispatch-friendly step after
+artifact review. It prepares commands for a data-repo publication branch and PR
+against `AdanimInstitue/israel-welfare-inspection-dataset`, never `main`, but
+does not copy generated dataset artifacts into the builder repository and does
+not perform automatic weekly publishing.
 
 ## Intended Builder Layout
 

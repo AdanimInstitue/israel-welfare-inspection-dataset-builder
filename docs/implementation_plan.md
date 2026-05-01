@@ -265,10 +265,23 @@ Acceptance criteria:
 Tasks:
 
 - Implement publication automation that opens a PR into
-  `AdanimInstitue/israel-welfare-inspection-dataset`.
+  `AdanimInstitue/israel-welfare-inspection-dataset`. Done as planning-first
+  `welfare-inspections publish-plan` plumbing that prepares data-repo branch/PR
+  commands and review text without pushing or copying generated artifacts.
 - Include provenance, diagnostics summaries, LLM/model/prompt metadata,
-  LLM evaluation reports, disclaimers, and release notes.
-- Never push directly to data repo `main`.
+  LLM evaluation reports, disclaimers, and release notes. Done in generated
+  `data_repo_pr_body.md`, `release_notes.md`, and
+  `publication_diagnostics.json` sidecars.
+- Never push directly to data repo `main`. Done by planning a separate
+  publication branch and validating that the publication branch is not `main`.
+- Require reviewed input artifacts and publication gates before any real
+  data-repo PR action. Done: production mode fails closed without reviewed
+  inputs, explicit approval, clear diagnostics, passing LLM evaluation, and
+  GitHub credentials.
+- Exclude downloaded PDFs, rendered page images, prompt payloads, raw LLM
+  responses, unreviewed large artifacts, finding-level rows, suspected
+  sensitive personal data, and builder-repo generated outputs. Done through
+  input/file-set guards and generated PR text.
 
 Acceptance criteria:
 
@@ -276,3 +289,6 @@ Acceptance criteria:
 - Generated artifacts remain out of the builder repository.
 - Data-repo PRs clearly distinguish official source documents from unofficial
   derived data.
+- Tests use mocked/offline fixtures only and cover publication command
+  construction, credential/input gates, artifact guards, builder-repo output
+  exclusion, PR/release-note wording, and CLI help.
