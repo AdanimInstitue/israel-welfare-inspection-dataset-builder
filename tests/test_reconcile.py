@@ -11,6 +11,7 @@ import pytest
 from pydantic import ValidationError
 
 from welfare_inspections import cli
+from welfare_inspections.collect import reconcile as reconcile_module
 from welfare_inspections.collect.manifest import (
     read_reconciled_metadata_manifest,
     write_reconciled_metadata_manifest,
@@ -23,9 +24,21 @@ from welfare_inspections.collect.models import (
     MetadataParseRunDiagnostics,
     MetadataParseWarning,
     ReconciliationDecision,
+    ReconciliationRecordDiagnostic,
+    ReconciliationRunDiagnostics,
     ReportMetadataRecord,
 )
 from welfare_inspections.collect.reconcile import (
+    RECONCILER_VERSION,
+    RECONCILIATION_SCHEMA_VERSION,
+    _backfill_status,
+    _candidate_by_id,
+    _comparable,
+    _count_decision,
+    _decision_for_field,
+    _extract_optional_id,
+    _read_required_metadata_diagnostics,
+    _validation_errors,
     reconcile_report_metadata,
     run_backfill_dry_run,
 )
@@ -152,6 +165,26 @@ def test_reconcile_records_malformed_llm_candidate_provenance(
 
 
 def test_extraction_candidate_requires_method_specific_llm_identity() -> None:
+    missing_pdf = _extraction_candidate_payload(extraction_method="llm_text")
+    missing_pdf.pop("source_pdf_sha256")
+    with pytest.raises(ValidationError, match="source_pdf_sha256"):
+        ExtractionCandidate.model_validate(missing_pdf)
+
+    missing_prompt_hash = _extraction_candidate_payload(extraction_method="llm_text")
+    missing_prompt_hash.pop("prompt_input_sha256")
+    with pytest.raises(ValidationError, match="prompt_input_sha256"):
+        ExtractionCandidate.model_validate(missing_prompt_hash)
+
+    missing_prompt_id = _extraction_candidate_payload(extraction_method="llm_text")
+    missing_prompt_id["prompt_id"] = None
+    with pytest.raises(ValidationError, match="prompt_id"):
+        ExtractionCandidate.model_validate(missing_prompt_id)
+
+    missing_prompt_version = _extraction_candidate_payload(extraction_method="llm_text")
+    missing_prompt_version["prompt_version"] = None
+    with pytest.raises(ValidationError, match="prompt_version"):
+        ExtractionCandidate.model_validate(missing_prompt_version)
+
     llm_text = _extraction_candidate_payload(extraction_method="llm_text")
     llm_text.pop("text_input_sha256")
 
@@ -328,6 +361,10 @@ def test_reconciled_metadata_manifest_round_trip_and_invalid_rows(
     )
     round_trip_path = tmp_path / "round-trip.jsonl"
     write_reconciled_metadata_manifest(round_trip_path, reconciled)
+    round_trip_path.write_text(
+        "\n" + round_trip_path.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
 
     assert read_reconciled_metadata_manifest(round_trip_path) == reconciled
 
@@ -423,6 +460,35 @@ def test_backfill_dry_run_counts_rejected_and_unresolved_decisions(
     }
 
 
+def test_backfill_dry_run_counts_changed_and_unchanged_when_baseline_exists(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    record = _metadata_record("source-doc-backfill-baseline", "report-backfill-base")
+    reconciled, _ = reconcile_report_metadata(
+        metadata_path=_write_metadata(tmp_path, [record]),
+        metadata_diagnostics_path=_write_metadata_diagnostics(tmp_path),
+        output_path=tmp_path / "reconciled.jsonl",
+        diagnostics_path=tmp_path / "reconciliation.json",
+    )
+    statuses = iter(["changed", "unchanged"])
+
+    monkeypatch.setattr(
+        reconcile_module,
+        "_backfill_status",
+        lambda decision: next(statuses),
+    )
+
+    diagnostics = run_backfill_dry_run(
+        reconciled_metadata_path=tmp_path / "reconciled.jsonl",
+        output_path=tmp_path / "backfill.json",
+    )
+
+    assert len(reconciled) == 1
+    assert diagnostics.changed_count == 1
+    assert diagnostics.unchanged_count == 1
+
+
 def test_backfill_diagnostics_accepts_unchanged_status() -> None:
     diagnostics = BackfillRunDiagnostics(
         reconciled_metadata_path="outputs/reconciled.jsonl",
@@ -443,6 +509,106 @@ def test_backfill_diagnostics_accepts_unchanged_status() -> None:
     )
 
     assert diagnostics.unchanged_count == 1
+
+
+def test_reconcile_keeps_llm_only_candidates_as_needs_review(
+    tmp_path: Path,
+) -> None:
+    record = _metadata_record("source-doc-llm-only", "report-llm-only")
+    record.fields = {}
+    llm_path = _write_llm_candidates(
+        tmp_path,
+        [
+            _llm_candidate(
+                source_document_id=record.source_document_id,
+                report_id=record.report_id,
+                field_name="facility_name",
+                value="בית חם",
+            )
+        ],
+    )
+
+    reconciled, diagnostics = reconcile_report_metadata(
+        metadata_path=_write_metadata(tmp_path, [record]),
+        metadata_diagnostics_path=_write_metadata_diagnostics(tmp_path),
+        llm_candidates_path=llm_path,
+        output_path=tmp_path / "reconciled.jsonl",
+        diagnostics_path=tmp_path / "reconciliation.json",
+    )
+
+    decision = _decision(reconciled[0], "facility_name")
+    assert diagnostics.needs_review_decisions == 1
+    assert decision.decision_method == "llm_only_requires_review"
+    assert "facility_name" not in reconciled[0].reconciled_fields
+
+
+def test_reconcile_handles_empty_report_as_unresolved(tmp_path: Path) -> None:
+    record = _metadata_record("source-doc-empty", "report-empty")
+    record.fields = {}
+
+    reconciled, diagnostics = reconcile_report_metadata(
+        metadata_path=_write_metadata(tmp_path, [record]),
+        metadata_diagnostics_path=_write_metadata_diagnostics(tmp_path),
+        output_path=tmp_path / "reconciled.jsonl",
+        diagnostics_path=tmp_path / "reconciliation.json",
+    )
+
+    assert diagnostics.reconciled_records == 1
+    assert reconciled[0].reconciliation_status == "unresolved"
+
+
+def test_reconciliation_private_helpers_cover_error_branches(tmp_path: Path) -> None:
+    record = _metadata_record("source-doc-private", "report-private")
+    rejected_decision = ReconciliationDecision(
+        decision_id="decision-rejected",
+        report_id=record.report_id,
+        source_document_id=record.source_document_id,
+        field_name="facility_name",
+        decision_status="rejected",
+        decision_method="test",
+        schema_version=RECONCILIATION_SCHEMA_VERSION,
+        reconciler_version=RECONCILER_VERSION,
+    )
+    run_diagnostics = ReconciliationRunDiagnostics(
+        metadata_path="outputs/metadata.jsonl",
+        metadata_diagnostics_path="outputs/metadata.json",
+        output_path="outputs/reconciled.jsonl",
+        diagnostics_path="outputs/reconciliation.json",
+        schema_version=RECONCILIATION_SCHEMA_VERSION,
+        reconciler_version=RECONCILER_VERSION,
+    )
+    record_diagnostic = ReconciliationRecordDiagnostic(status="pending")
+
+    _count_decision(run_diagnostics, record_diagnostic, rejected_decision)
+
+    assert run_diagnostics.rejected_decisions == 1
+    assert record_diagnostic.rejected_count == 1
+    assert _backfill_status(rejected_decision) == "rejected"
+    assert _extract_optional_id("{not-json", "report_id") is None
+    assert _validation_errors(RuntimeError("plain error")) == ["plain error"]
+    assert _comparable(date(2026, 5, 1)) == "2026-05-01"
+
+    with pytest.raises(ValueError, match="not compared"):
+        _candidate_by_id([], "missing-candidate")
+
+    missing_diagnostics = tmp_path / "missing-diagnostics.json"
+    with pytest.raises(ValueError, match="Metadata diagnostics"):
+        _read_required_metadata_diagnostics(missing_diagnostics)
+
+
+def test_decision_for_field_reports_no_schema_compatible_candidate() -> None:
+    record = _metadata_record("source-doc-no-candidate", "report-no-candidate")
+
+    decision = _decision_for_field(
+        metadata_record=record,
+        field_name="facility_name",
+        candidates=[],
+        schema_version=RECONCILIATION_SCHEMA_VERSION,
+        reconciler_version=RECONCILER_VERSION,
+    )
+
+    assert decision.decision_status == "unresolved"
+    assert decision.decision_method == "no_schema_compatible_candidate"
 
 
 def test_reconcile_and_backfill_reject_tracked_repo_output_paths(
