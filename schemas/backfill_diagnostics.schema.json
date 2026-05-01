@@ -1,0 +1,269 @@
+{
+  "$defs": {
+    "BackfillFieldChange": {
+      "additionalProperties": false,
+      "description": "Before/after view of one field considered by backfill.",
+      "properties": {
+        "report_id": {
+          "minLength": 1,
+          "title": "Report Id",
+          "type": "string"
+        },
+        "source_document_id": {
+          "minLength": 1,
+          "title": "Source Document Id",
+          "type": "string"
+        },
+        "field_name": {
+          "minLength": 1,
+          "title": "Field Name",
+          "type": "string"
+        },
+        "before_value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Before Value"
+        },
+        "after_value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "After Value"
+        },
+        "status": {
+          "pattern": "^(changed|unchanged|unresolved|rejected|no_baseline)$",
+          "title": "Status",
+          "type": "string"
+        },
+        "accepted_candidate_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Accepted Candidate Id"
+        },
+        "candidate_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Candidate Ids",
+          "type": "array"
+        },
+        "decision_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Decision Id"
+        }
+      },
+      "required": [
+        "report_id",
+        "source_document_id",
+        "field_name",
+        "status"
+      ],
+      "title": "BackfillFieldChange",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Dry-run-friendly diagnostics for versioned historical backfills.",
+  "properties": {
+    "started_at": {
+      "format": "date-time",
+      "title": "Started At",
+      "type": "string"
+    },
+    "finished_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Finished At"
+    },
+    "mode": {
+      "default": "dry-run",
+      "title": "Mode",
+      "type": "string"
+    },
+    "reconciled_metadata_path": {
+      "title": "Reconciled Metadata Path",
+      "type": "string"
+    },
+    "output_path": {
+      "title": "Output Path",
+      "type": "string"
+    },
+    "evaluation_report_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Evaluation Report Path"
+    },
+    "schema_version": {
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "reconciler_version": {
+      "title": "Reconciler Version",
+      "type": "string"
+    },
+    "input_hashes": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Input Hashes",
+      "type": "object"
+    },
+    "model_versions": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "title": "Model Versions",
+      "type": "object"
+    },
+    "prompt_versions": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "title": "Prompt Versions",
+      "type": "object"
+    },
+    "render_versions": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "title": "Render Versions",
+      "type": "object"
+    },
+    "changed_count": {
+      "default": 0,
+      "title": "Changed Count",
+      "type": "integer"
+    },
+    "unchanged_count": {
+      "default": 0,
+      "title": "Unchanged Count",
+      "type": "integer"
+    },
+    "no_baseline_count": {
+      "default": 0,
+      "title": "No Baseline Count",
+      "type": "integer"
+    },
+    "unresolved_count": {
+      "default": 0,
+      "title": "Unresolved Count",
+      "type": "integer"
+    },
+    "rejected_count": {
+      "default": 0,
+      "title": "Rejected Count",
+      "type": "integer"
+    },
+    "field_changes": {
+      "items": {
+        "$ref": "#/$defs/BackfillFieldChange"
+      },
+      "title": "Field Changes",
+      "type": "array"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Notes",
+      "type": "array"
+    },
+    "extra": {
+      "additionalProperties": true,
+      "title": "Extra",
+      "type": "object"
+    }
+  },
+  "required": [
+    "reconciled_metadata_path",
+    "output_path",
+    "schema_version",
+    "reconciler_version"
+  ],
+  "title": "BackfillRunDiagnostics",
+  "type": "object"
+}

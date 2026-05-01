@@ -15,6 +15,7 @@ src/
     collect/
       govil_client.py       conservative manual Gov.il HTTP client
       llm_extract.py        offline LLM candidate contracts/plumbing/evaluator
+      reconcile.py          offline reconciliation and dry-run backfill plumbing
       export.py             manual schema validation and local report exports
       manifest.py           source JSONL and diagnostics readers/writers
       models.py             Pydantic source discovery contracts
@@ -32,6 +33,11 @@ schemas/
   rendered_page_artifact.schema.json  PR 7 rendered image artifact contract
   llm_extraction_candidate.schema.json PR 7 LLM candidate contract
   llm_evaluation_report.schema.json    PR 7 offline evaluation report contract
+  extraction_candidate.schema.json     PR 8 common candidate compatibility contract
+  reconciliation_decision.schema.json  PR 8 field decision contract
+  reconciliation_diagnostics.schema.json PR 8 reconciliation diagnostics contract
+  reconciled_report_metadata.schema.json PR 8 reconciled metadata contract
+  backfill_diagnostics.schema.json     PR 8 dry-run backfill diagnostics contract
   facility.schema.json     placeholder facility contract
   inspection.schema.json   placeholder inspection finding contract
   datapackage.schema.json  placeholder data-package contract
@@ -43,6 +49,7 @@ tests/
   test_pdf_text_extraction.py synthetic embedded-text/normalization tests
   test_pdf_render.py synthetic page rendering/artifact contract tests
   test_llm_extract.py mocked LLM candidate/evaluation contract tests
+  test_reconcile.py synthetic reconciliation/backfill contract tests
   test_source_discovery.py mocked discovery/parser/manifest tests
   test_metadata_parser.py synthetic top-level metadata parser tests
   test_export.py      synthetic schema validation/local export tests
@@ -89,6 +96,12 @@ data_samples/
   `schemas/llm_extraction_candidate.schema.json`
 - Current offline LLM evaluation contract:
   `schemas/llm_evaluation_report.schema.json`
+- Current reconciliation and backfill contracts:
+  `schemas/extraction_candidate.schema.json`,
+  `schemas/reconciliation_decision.schema.json`,
+  `schemas/reconciliation_diagnostics.schema.json`,
+  `schemas/reconciled_report_metadata.schema.json`, and
+  `schemas/backfill_diagnostics.schema.json`
 - Manual v0 preview publication plan:
   `docs/implementation_plan.md`, `docs/operations.md`,
   `docs/privacy_and_publication_policy.md`, and `docs/data_quality.md`
@@ -117,7 +130,8 @@ LLM planning constraints:
 ## Automation
 
 - Local validation: `python -m pip install -e ".[dev]"`, `ruff check .`,
-  `pytest`, `python -m welfare_inspections.cli export --help`
+  `pytest`, `python -m welfare_inspections.cli reconcile --help`,
+  `python -m welfare_inspections.cli backfill --help`
 - CI: `.github/workflows/ci.yml`
 - PR context comments and patch coverage: `pr-agent-context` job in CI
 - Review/check refresh comments: `.github/workflows/pr-agent-context-refresh.yml`

@@ -1,0 +1,101 @@
+{
+  "additionalProperties": false,
+  "description": "Field-level decision describing how candidates became canonical values.",
+  "properties": {
+    "decision_id": {
+      "minLength": 1,
+      "title": "Decision Id",
+      "type": "string"
+    },
+    "report_id": {
+      "minLength": 1,
+      "title": "Report Id",
+      "type": "string"
+    },
+    "source_document_id": {
+      "minLength": 1,
+      "title": "Source Document Id",
+      "type": "string"
+    },
+    "field_name": {
+      "minLength": 1,
+      "title": "Field Name",
+      "type": "string"
+    },
+    "accepted_candidate_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Accepted Candidate Id"
+    },
+    "candidate_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Candidate Ids",
+      "type": "array"
+    },
+    "decision_status": {
+      "pattern": "^(accepted|unresolved|conflict|rejected|needs_review)$",
+      "title": "Decision Status",
+      "type": "string"
+    },
+    "decision_method": {
+      "minLength": 1,
+      "title": "Decision Method",
+      "type": "string"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    },
+    "decided_at": {
+      "format": "date-time",
+      "title": "Decided At",
+      "type": "string"
+    },
+    "schema_version": {
+      "minLength": 1,
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "reconciler_version": {
+      "minLength": 1,
+      "title": "Reconciler Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "decision_id",
+    "report_id",
+    "source_document_id",
+    "field_name",
+    "decision_status",
+    "decision_method",
+    "schema_version",
+    "reconciler_version"
+  ],
+  "title": "ReconciliationDecision",
+  "type": "object"
+}

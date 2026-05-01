@@ -1,0 +1,528 @@
+{
+  "$defs": {
+    "MetadataField": {
+      "additionalProperties": false,
+      "description": "One deterministic report-level metadata field plus evidence.",
+      "properties": {
+        "field_name": {
+          "title": "Field Name",
+          "type": "string"
+        },
+        "raw_value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Raw Value"
+        },
+        "normalized_value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Normalized Value"
+        },
+        "raw_excerpt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Raw Excerpt"
+        },
+        "page_number": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Number"
+        },
+        "confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "field_name",
+        "confidence"
+      ],
+      "title": "MetadataField",
+      "type": "object"
+    },
+    "MetadataParseWarning": {
+      "additionalProperties": false,
+      "description": "Document-level metadata parsing warning.",
+      "properties": {
+        "warning_id": {
+          "title": "Warning Id",
+          "type": "string"
+        },
+        "source_document_id": {
+          "title": "Source Document Id",
+          "type": "string"
+        },
+        "report_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Report Id"
+        },
+        "severity": {
+          "default": "warning",
+          "title": "Severity",
+          "type": "string"
+        },
+        "parser_stage": {
+          "default": "metadata",
+          "title": "Parser Stage",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "page_number": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Number"
+        },
+        "raw_excerpt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Raw Excerpt"
+        }
+      },
+      "required": [
+        "warning_id",
+        "source_document_id",
+        "message"
+      ],
+      "title": "MetadataParseWarning",
+      "type": "object"
+    },
+    "ReconciliationDecision": {
+      "additionalProperties": false,
+      "description": "Field-level decision describing how candidates became canonical values.",
+      "properties": {
+        "decision_id": {
+          "minLength": 1,
+          "title": "Decision Id",
+          "type": "string"
+        },
+        "report_id": {
+          "minLength": 1,
+          "title": "Report Id",
+          "type": "string"
+        },
+        "source_document_id": {
+          "minLength": 1,
+          "title": "Source Document Id",
+          "type": "string"
+        },
+        "field_name": {
+          "minLength": 1,
+          "title": "Field Name",
+          "type": "string"
+        },
+        "accepted_candidate_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Accepted Candidate Id"
+        },
+        "candidate_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Candidate Ids",
+          "type": "array"
+        },
+        "decision_status": {
+          "pattern": "^(accepted|unresolved|conflict|rejected|needs_review)$",
+          "title": "Decision Status",
+          "type": "string"
+        },
+        "decision_method": {
+          "minLength": 1,
+          "title": "Decision Method",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        },
+        "decided_at": {
+          "format": "date-time",
+          "title": "Decided At",
+          "type": "string"
+        },
+        "schema_version": {
+          "minLength": 1,
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "reconciler_version": {
+          "minLength": 1,
+          "title": "Reconciler Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "decision_id",
+        "report_id",
+        "source_document_id",
+        "field_name",
+        "decision_status",
+        "decision_method",
+        "schema_version",
+        "reconciler_version"
+      ],
+      "title": "ReconciliationDecision",
+      "type": "object"
+    },
+    "ReportMetadataRecord": {
+      "additionalProperties": false,
+      "description": "Top-level metadata parsed from one extracted inspection report.",
+      "properties": {
+        "report_id": {
+          "title": "Report Id",
+          "type": "string"
+        },
+        "source_document_id": {
+          "title": "Source Document Id",
+          "type": "string"
+        },
+        "govil_item_slug": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Govil Item Slug"
+        },
+        "govil_item_url": {
+          "title": "Govil Item Url",
+          "type": "string"
+        },
+        "pdf_url": {
+          "title": "Pdf Url",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "language_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Language Path"
+        },
+        "pdf_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pdf Sha256"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Local Path"
+        },
+        "text_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text Path"
+        },
+        "page_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Count"
+        },
+        "extraction_status": {
+          "title": "Extraction Status",
+          "type": "string"
+        },
+        "extraction_confidence": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extraction Confidence"
+        },
+        "fields": {
+          "additionalProperties": {
+            "$ref": "#/$defs/MetadataField"
+          },
+          "title": "Fields",
+          "type": "object"
+        },
+        "warnings": {
+          "items": {
+            "$ref": "#/$defs/MetadataParseWarning"
+          },
+          "title": "Warnings",
+          "type": "array"
+        },
+        "parsed_at": {
+          "format": "date-time",
+          "title": "Parsed At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "report_id",
+        "source_document_id",
+        "govil_item_url",
+        "pdf_url",
+        "extraction_status"
+      ],
+      "title": "ReportMetadataRecord",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Report metadata plus conservative reconciliation decisions.",
+  "properties": {
+    "report_id": {
+      "minLength": 1,
+      "title": "Report Id",
+      "type": "string"
+    },
+    "source_document_id": {
+      "minLength": 1,
+      "title": "Source Document Id",
+      "type": "string"
+    },
+    "base_metadata": {
+      "$ref": "#/$defs/ReportMetadataRecord"
+    },
+    "reconciled_fields": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "format": "date",
+            "type": "string"
+          },
+          {
+            "type": "integer"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "title": "Reconciled Fields",
+      "type": "object"
+    },
+    "raw_fields": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "title": "Raw Fields",
+      "type": "object"
+    },
+    "accepted_extraction_methods": {
+      "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "title": "Accepted Extraction Methods",
+      "type": "object"
+    },
+    "llm_candidate_ids": {
+      "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "title": "Llm Candidate Ids",
+      "type": "object"
+    },
+    "reconciliation_status": {
+      "minLength": 1,
+      "title": "Reconciliation Status",
+      "type": "string"
+    },
+    "decisions": {
+      "items": {
+        "$ref": "#/$defs/ReconciliationDecision"
+      },
+      "title": "Decisions",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    },
+    "schema_version": {
+      "minLength": 1,
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "reconciler_version": {
+      "minLength": 1,
+      "title": "Reconciler Version",
+      "type": "string"
+    },
+    "reconciled_at": {
+      "format": "date-time",
+      "title": "Reconciled At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "report_id",
+    "source_document_id",
+    "base_metadata",
+    "reconciliation_status",
+    "schema_version",
+    "reconciler_version"
+  ],
+  "title": "ReconciledReportMetadata",
+  "type": "object"
+}

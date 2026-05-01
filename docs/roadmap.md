@@ -59,6 +59,14 @@ validated canonical rows. Add explicit backfill routines for versioned
 historical reprocessing. Material conflicts remain `needs_review` unless
 deterministic rules or explicit agreement thresholds resolve them.
 
+Implemented as offline PR 8 plumbing for report-level metadata: deterministic
+PR 5 metadata fields are converted into candidate records, PR 7 LLM candidate
+manifests are compared when present, deterministic-only and deterministic/LLM
+agreement decisions can be accepted, and material deterministic/LLM conflicts
+remain `needs_review`. The `backfill` command is diagnostics-first and dry-run
+only; it records input hashes and change counters without collecting,
+publishing, or overwriting historical canonical outputs.
+
 ## PR 9: Weekly Workflow and Artifact Upload
 
 Add safe scheduled incremental automation and upload artifacts for review. The

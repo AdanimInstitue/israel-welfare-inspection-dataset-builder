@@ -112,6 +112,15 @@ dry-run/mock offline extraction modes, and an offline evaluation report stub.
 These artifacts remain local sidecars until a later reconciliation PR accepts
 candidate values into canonical rows.
 
+PR 8 adds that first reconciliation sidecar layer for report-level metadata.
+The reconciler reads local deterministic metadata and LLM candidate manifests,
+records field-level decisions with compared candidate IDs, and writes ignored
+reconciled metadata plus diagnostics. Accepted fields retain accepted extraction
+methods and LLM candidate references where available. Material conflicts stay
+`needs_review`. The backfill command is versioned dry-run plumbing only and
+records input hashes and change counters without live collection or canonical
+overwrites.
+
 OCR remains optional infrastructure for future quality improvement, but it is
 not the main answer to the current PDF issue. When OCR is used, it should be
 treated as another candidate source and reconciled with the same provenance and

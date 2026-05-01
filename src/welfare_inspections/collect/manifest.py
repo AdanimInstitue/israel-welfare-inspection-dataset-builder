@@ -7,6 +7,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from welfare_inspections.collect.models import (
+    BackfillRunDiagnostics,
     DiscoveryRunDiagnostics,
     DownloadRunDiagnostics,
     ExportRunDiagnostics,
@@ -15,6 +16,8 @@ from welfare_inspections.collect.models import (
     LLMExtractionRunDiagnostics,
     MetadataParseRunDiagnostics,
     PageRenderRunDiagnostics,
+    ReconciledReportMetadata,
+    ReconciliationRunDiagnostics,
     RenderedPageArtifact,
     ReportMetadataRecord,
     SourceDocumentRecord,
@@ -112,6 +115,28 @@ def write_llm_candidate_manifest(
     _atomic_write_text(path, "\n".join(lines) + ("\n" if lines else ""))
 
 
+def write_reconciled_metadata_manifest(
+    path: Path,
+    records: list[ReconciledReportMetadata],
+) -> None:
+    lines = [record.model_dump_json() for record in records]
+    _atomic_write_text(path, "\n".join(lines) + ("\n" if lines else ""))
+
+
+def read_reconciled_metadata_manifest(path: Path) -> list[ReconciledReportMetadata]:
+    records: list[ReconciledReportMetadata] = []
+    lines = path.read_text(encoding="utf-8").splitlines()
+    for line_number, line in enumerate(lines, 1):
+        if not line.strip():
+            continue
+        try:
+            records.append(ReconciledReportMetadata.model_validate_json(line))
+        except ValueError as exc:
+            msg = f"Invalid reconciled metadata JSONL at {path}:{line_number}"
+            raise ValueError(msg) from exc
+    return records
+
+
 def write_discovery_diagnostics(
     path: Path,
     diagnostics: DiscoveryRunDiagnostics,
@@ -160,3 +185,14 @@ def write_llm_extraction_diagnostics(
 
 def write_llm_evaluation_report(path: Path, report: LLMEvaluationReport) -> None:
     _write_model_json(path, report)
+
+
+def write_reconciliation_diagnostics(
+    path: Path,
+    diagnostics: ReconciliationRunDiagnostics,
+) -> None:
+    _write_model_json(path, diagnostics)
+
+
+def write_backfill_diagnostics(path: Path, diagnostics: BackfillRunDiagnostics) -> None:
+    _write_model_json(path, diagnostics)

@@ -148,11 +148,19 @@ extractors before reconciliation.
 | `created_at` | datetime | derived |
 
 `extraction_method` values should distinguish at least `deterministic`,
-`llm_text`, `llm_multimodal`, `ocr`, and `reconciler_llm`.
+`llm_text`, `llm_multimodal`, `ocr`, `existing_canonical`, and
+`reconciler_llm`.
 
 `input_artifact_refs` is a convenience index, not the reproducibility contract.
 LLM and OCR candidates must also carry immutable hashes for the exact PDF, text,
 rendered image/crop, and prompt input artifacts that produced the value.
+
+PR 8 adds a common local `extraction_candidates` compatibility model used by
+the reconciler. PR 5 metadata fields are converted to deterministic candidates
+with stable candidate IDs, field evidence, parser version, confidence, and
+warnings. PR 7 LLM candidates are converted without dropping model, prompt,
+input hash, rendered artifact, or evidence provenance. Invalid or duplicate
+candidate IDs are reported in reconciliation diagnostics.
 
 ## `rendered_page_artifacts`
 
@@ -211,6 +219,27 @@ Material conflicts should remain `needs_review` unless deterministic rules or
 explicit agreement thresholds resolve them. A `reconciler_llm` decision may be
 stored as a candidate or decision aid, but it is not enough by itself to
 auto-accept a disputed value.
+
+PR 8 stores reconciliation sidecars in ignored local outputs:
+
+- `schemas/reconciliation_decision.schema.json` for each field-level decision.
+- `schemas/extraction_candidate.schema.json` for the common compatibility
+  candidate contract used by reconciliation.
+- `schemas/reconciliation_diagnostics.schema.json` for run and record
+  diagnostics, including duplicate candidate IDs and duplicate decision IDs.
+- `schemas/reconciled_report_metadata.schema.json` for report-level reconciled
+  metadata, accepted extraction methods, LLM candidate IDs, decisions, and
+  warnings.
+- `schemas/backfill_diagnostics.schema.json` for dry-run backfill summaries,
+  including before/after values, `no_baseline`/changed/unchanged/unresolved/
+  rejected counts, input hashes, model/prompt/render/schema versions, and
+  evaluation report references.
+
+The first reconciliation rules are conservative: deterministic-only values are
+accepted, deterministic and valid LLM candidates that agree are accepted with
+all compared candidate IDs recorded, and material deterministic/LLM conflicts
+stay `needs_review`. LLM-only values are retained as candidates and require
+review before canonical acceptance.
 
 ## `inspection_findings`
 
@@ -271,3 +300,7 @@ PR 7 adds sidecar schema contracts:
 These PR 7 schemas describe intermediate local artifacts. They do not authorize
 publishing LLM-derived values as canonical rows without later reconciliation,
 privacy review, and publication gates.
+
+PR 8 schemas also describe intermediate local artifacts. Reconciled metadata is
+not published from the builder repository and backfill diagnostics do not
+overwrite existing canonical values.

@@ -1,0 +1,223 @@
+{
+  "$defs": {
+    "ReconciliationRecordDiagnostic": {
+      "additionalProperties": false,
+      "description": "Per-record diagnostics for reconciliation.",
+      "properties": {
+        "line_number": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Number"
+        },
+        "report_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Report Id"
+        },
+        "source_document_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Document Id"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "decision_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Decision Ids",
+          "type": "array"
+        },
+        "accepted_count": {
+          "default": 0,
+          "title": "Accepted Count",
+          "type": "integer"
+        },
+        "needs_review_count": {
+          "default": 0,
+          "title": "Needs Review Count",
+          "type": "integer"
+        },
+        "rejected_count": {
+          "default": 0,
+          "title": "Rejected Count",
+          "type": "integer"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        },
+        "errors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Errors",
+          "type": "array"
+        },
+        "checked_at": {
+          "format": "date-time",
+          "title": "Checked At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "ReconciliationRecordDiagnostic",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Sidecar diagnostics for one manual reconciliation run.",
+  "properties": {
+    "started_at": {
+      "format": "date-time",
+      "title": "Started At",
+      "type": "string"
+    },
+    "finished_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Finished At"
+    },
+    "metadata_path": {
+      "title": "Metadata Path",
+      "type": "string"
+    },
+    "metadata_diagnostics_path": {
+      "title": "Metadata Diagnostics Path",
+      "type": "string"
+    },
+    "llm_candidates_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Llm Candidates Path"
+    },
+    "output_path": {
+      "title": "Output Path",
+      "type": "string"
+    },
+    "diagnostics_path": {
+      "title": "Diagnostics Path",
+      "type": "string"
+    },
+    "schema_version": {
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "reconciler_version": {
+      "title": "Reconciler Version",
+      "type": "string"
+    },
+    "total_records": {
+      "default": 0,
+      "title": "Total Records",
+      "type": "integer"
+    },
+    "reconciled_records": {
+      "default": 0,
+      "title": "Reconciled Records",
+      "type": "integer"
+    },
+    "validation_failed_records": {
+      "default": 0,
+      "title": "Validation Failed Records",
+      "type": "integer"
+    },
+    "duplicate_candidate_id_records": {
+      "default": 0,
+      "title": "Duplicate Candidate Id Records",
+      "type": "integer"
+    },
+    "duplicate_decision_id_records": {
+      "default": 0,
+      "title": "Duplicate Decision Id Records",
+      "type": "integer"
+    },
+    "accepted_decisions": {
+      "default": 0,
+      "title": "Accepted Decisions",
+      "type": "integer"
+    },
+    "needs_review_decisions": {
+      "default": 0,
+      "title": "Needs Review Decisions",
+      "type": "integer"
+    },
+    "rejected_decisions": {
+      "default": 0,
+      "title": "Rejected Decisions",
+      "type": "integer"
+    },
+    "record_diagnostics": {
+      "items": {
+        "$ref": "#/$defs/ReconciliationRecordDiagnostic"
+      },
+      "title": "Record Diagnostics",
+      "type": "array"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Notes",
+      "type": "array"
+    },
+    "extra": {
+      "additionalProperties": true,
+      "title": "Extra",
+      "type": "object"
+    }
+  },
+  "required": [
+    "metadata_path",
+    "metadata_diagnostics_path",
+    "output_path",
+    "diagnostics_path",
+    "schema_version",
+    "reconciler_version"
+  ],
+  "title": "ReconciliationRunDiagnostics",
+  "type": "object"
+}

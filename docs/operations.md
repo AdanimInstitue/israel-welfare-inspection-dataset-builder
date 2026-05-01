@@ -6,9 +6,10 @@ embedded-text extraction layer that reads the PR 3 download manifest. PR 5 adds
 a manual top-level metadata parser that reads PR 4 extracted text and
 diagnostics. PR 6 adds a manual schema validation and local export layer that
 reads PR 5 metadata JSONL and diagnostics. PR 7 adds manual page rendering,
-schema-bound LLM candidate plumbing, and offline evaluation reporting. These
-commands are inert by default and write ignored local outputs. CI remains
-offline and uses mocked or synthetic inputs only.
+schema-bound LLM candidate plumbing, and offline evaluation reporting. PR 8 adds
+manual candidate reconciliation and diagnostics-first dry-run backfill
+plumbing. These commands are inert by default and write ignored local outputs.
+CI remains offline and uses mocked or synthetic inputs only.
 
 Real PDF inspection showed that embedded-text parsing alone is not sufficient
 for useful publication. The production pipeline therefore needs required
@@ -28,12 +29,12 @@ Current manual commands:
 - `welfare-inspections parse-metadata`
 - `welfare-inspections render-pages`
 - `welfare-inspections extract-llm`
+- `welfare-inspections reconcile`
+- `welfare-inspections backfill`
 - `welfare-inspections export`
 
 Planned future commands:
 
-- `welfare-inspections reconcile`
-- `welfare-inspections backfill`
 - `welfare-inspections build`
 - `welfare-inspections publish`
 - `welfare-inspections run-all`
@@ -144,7 +145,7 @@ artifact set. It does not inspect PDFs, collect from Gov.il, OCR, parse
 finding-level rows, publish data, write to the paired data repository, or
 contact the network.
 
-Current PR 7 page rendering and LLM extraction flow:
+Current PR 7 page rendering, LLM extraction, and PR 8 reconciliation flow:
 
 ```bash
 welfare-inspections render-pages \
@@ -170,6 +171,12 @@ welfare-inspections reconcile \
   --llm-candidates outputs/llm_metadata_candidates.jsonl \
   --output outputs/reconciled_report_metadata.jsonl \
   --diagnostics outputs/reconciliation_diagnostics.json
+
+welfare-inspections backfill \
+  --reconciled-metadata outputs/reconciled_report_metadata.jsonl \
+  --output outputs/backfill_diagnostics.json \
+  --evaluation-report outputs/llm_eval_report.json \
+  --dry-run
 ```
 
 The PR 7 `render-pages` command reads only PR 3 download manifests and local PDF
@@ -205,6 +212,18 @@ Production publication must include an LLM evaluation report. Mocked provider
 tests remain required for CI, but they are not enough to publish data. The eval
 report should summarize field-level coverage, field-level correctness, and
 regressions by model, prompt, renderer, schema, and reconciler version.
+
+The PR 8 `reconcile` command reads only local PR 5 metadata outputs/diagnostics
+and optional PR 7 LLM candidate manifests. It writes
+`outputs/reconciled_report_metadata.jsonl` and
+`outputs/reconciliation_diagnostics.json` by default. Deterministic-only values
+and deterministic/LLM agreements can be accepted; material conflicts remain
+`needs_review` with all candidate IDs preserved.
+
+The PR 8 `backfill` command is dry-run-only. It reads reconciled metadata,
+optionally references an LLM evaluation report, records input hashes and change
+counts, and writes `outputs/backfill_diagnostics.json`. It does not perform
+historical live collection, publication, or canonical overwrite.
 
 ## Weekly Incremental Jobs and Backfills
 
