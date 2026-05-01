@@ -5,14 +5,6 @@ on:
     - cron: "17 4 * * 1"
   workflow_dispatch:
     inputs:
-      dry_run:
-        description: "Run without production LLM provider calls"
-        required: true
-        default: "true"
-        type: choice
-        options:
-          - "true"
-          - "false"
       max_pages:
         description: "Maximum Gov.il collector pages to inspect"
         required: true
@@ -45,31 +37,18 @@ jobs:
 
       - name: Plan weekly run
         env:
-          DISPATCH_DRY_RUN: ${{ github.event.inputs.dry_run }}
           DISPATCH_MAX_PAGES: ${{ github.event.inputs.max_pages }}
-          WELFARE_INSPECTIONS_LLM_PROVIDER: ${{ secrets.WELFARE_INSPECTIONS_LLM_PROVIDER }}
-          WELFARE_INSPECTIONS_LLM_MODEL: ${{ secrets.WELFARE_INSPECTIONS_LLM_MODEL }}
-          WELFARE_INSPECTIONS_LLM_MODEL_VERSION: ${{ secrets.WELFARE_INSPECTIONS_LLM_MODEL_VERSION }}
         run: |
           set -euo pipefail
-          DRY_RUN="${DISPATCH_DRY_RUN:-true}"
           MAX_PAGES="${DISPATCH_MAX_PAGES:-1}"
-          MODE="dry-run"
-          if [ "${DRY_RUN}" = "false" ]; then
-            MODE="production"
-          fi
           python -m welfare_inspections.cli weekly-plan \
             --output-dir outputs/weekly \
             --artifact-dir outputs/weekly/review_artifacts \
-            --mode "${MODE}" \
+            --mode dry-run \
             --max-pages "${MAX_PAGES}" \
             --request-delay-seconds 2
 
       - name: Execute planned stages
-        env:
-          WELFARE_INSPECTIONS_LLM_PROVIDER: ${{ secrets.WELFARE_INSPECTIONS_LLM_PROVIDER }}
-          WELFARE_INSPECTIONS_LLM_MODEL: ${{ secrets.WELFARE_INSPECTIONS_LLM_MODEL }}
-          WELFARE_INSPECTIONS_LLM_MODEL_VERSION: ${{ secrets.WELFARE_INSPECTIONS_LLM_MODEL_VERSION }}
         run: |
           set -euo pipefail
           python - <<'PY'
@@ -94,8 +73,19 @@ jobs:
         with:
           name: weekly-review-artifacts
           path: |
-            outputs/weekly/**/*.json
-            outputs/weekly/**/*.jsonl
-            outputs/weekly/exports/*.csv
+            outputs/weekly/weekly_run_plan.json
+            outputs/weekly/weekly_run_summary.json
+            outputs/weekly/weekly_artifact_manifest.json
+            outputs/weekly/discovery_diagnostics.json
+            outputs/weekly/download_manifest.jsonl
+            outputs/weekly/download_diagnostics.json
+            outputs/weekly/text_extraction_diagnostics.json
+            outputs/weekly/metadata_parse_diagnostics.json
+            outputs/weekly/rendered_pages_manifest.jsonl
+            outputs/weekly/page_render_diagnostics.json
+            outputs/weekly/llm_extraction_diagnostics.json
+            outputs/weekly/llm_eval_report.json
+            outputs/weekly/reconciliation_diagnostics.json
+            outputs/weekly/backfill_diagnostics.json
           if-no-files-found: ignore
           retention-days: 14

@@ -57,7 +57,7 @@ Expected behavior:
   `needs_review`.
 - `backfill` reprocesses historical documents when model, prompt, schema,
   renderer, parser, or reconciliation versions change.
-- `weekly-plan` writes a safe incremental run plan, credential summary, and
+- `weekly-plan` writes a safe dry-run review-artifact plan, run summary, and
   artifact manifest for scheduled/manual review-artifact workflows.
 - `export` validates parsed report metadata and emits local CSV/JSONL outputs.
 - `build` will later chain broader dataset outputs into a local output
@@ -243,29 +243,17 @@ welfare-inspections weekly-plan \
 The command writes `weekly_run_plan.json`, `weekly_run_summary.json`, and
 `weekly_artifact_manifest.json` under ignored local outputs. The plan records
 the stage commands for `discover`, `download`, `parse`, `parse-metadata`,
-`render-pages`, `extract-llm`, `reconcile`, `export`, and a dry-run
-`backfill` summary. It also records the active identity/version contract:
+`render-pages`, `extract-llm`, `reconcile`, and a dry-run `backfill` summary.
+It also records the identity/version fields future incremental reuse needs:
 `source_document_id`, `pdf_sha256`, schema versions, model/prompt versions,
-render profile, and reconciler version must match before artifacts are treated
-as unchanged. If any of those change, a weekly run should emit review
-diagnostics and leave historical reprocessing to an explicit backfill.
-
-Manual production planning:
-
-```bash
-welfare-inspections weekly-plan \
-  --output-dir outputs/weekly \
-  --mode production
-```
-
-Production mode fails before source collection unless
-`WELFARE_INSPECTIONS_LLM_PROVIDER` and `WELFARE_INSPECTIONS_LLM_MODEL` are set.
-Dry-run mode does not require provider credentials and is the default for safe
-scheduled/manual review runs.
+render profile, and reconciler version. PR 9 does not enforce cache reuse or
+classify documents as new, changed, or unchanged; those behaviors remain future
+work. Production weekly mode is blocked until live LLM provider calls and real
+incremental reuse exist, so scheduled/manual review runs stay in dry-run mode.
 
 ## Weekly Incremental Jobs and Backfills
 
-Weekly incremental jobs:
+Future weekly incremental jobs:
 
 - discover new or changed Gov.il source documents
 - download/checksum only new or changed PDFs
@@ -278,11 +266,12 @@ Weekly incremental jobs:
   LLM evaluation gates pass
 
 The PR 9 workflow is `.github/workflows/weekly-artifacts.yml`. It runs on a
-weekly schedule and by manual dispatch, uploads only JSON/JSONL/CSV diagnostics
-and review sidecars from `outputs/weekly`, retains artifacts for short-term
+weekly schedule and by manual dispatch, uploads only explicit diagnostics and
+review manifests from `outputs/weekly`, retains artifacts for short-term
 review, and never commits generated outputs. Downloaded PDFs, rendered images,
-prompt payloads, raw provider responses, and publication artifacts are
-intentionally excluded from uploads.
+prompt payloads, raw provider responses, generated report exports, candidate
+payload manifests, and publication artifacts are intentionally excluded from
+uploads.
 
 Backfill jobs:
 

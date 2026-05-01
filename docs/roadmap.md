@@ -73,12 +73,14 @@ Add safe scheduled incremental automation and upload artifacts for review. The
 weekly job should process new/changed reports and should not hide historical
 backfills.
 
-Implemented as PR 9 review-artifact plumbing: `weekly-plan` writes the
-version/checksum-aware run plan, artifact manifest, and credential-check summary
-under ignored outputs, and `.github/workflows/weekly-artifacts.yml` runs the
-existing stages with conservative defaults. Scheduled/manual runs default to
-dry-run LLM mode; manual production mode fails before source collection if
-required LLM credentials are absent. The workflow uploads diagnostics/review
+Implemented as PR 9 dry-run review-artifact plumbing: `weekly-plan` writes the
+run plan, artifact manifest, and summary under ignored outputs, and
+`.github/workflows/weekly-artifacts.yml` runs the existing review stages with
+conservative defaults. The plan records the identity and version fields needed
+for future incremental reuse, but PR 9 does not enforce cache reuse or
+new/changed/unchanged classification yet. Scheduled/manual runs are dry-run
+only; production weekly execution is blocked until live LLM provider calls and
+real incremental reuse exist. The workflow uploads explicit diagnostics/review
 artifacts only and does not publish to the paired data repository.
 
 ## PR 10: Publish PR Flow Into Data Repo

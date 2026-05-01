@@ -33,7 +33,7 @@ from welfare_inspections.collect.settings import (
     ParseSettings,
 )
 from welfare_inspections.collect.weekly import (
-    MissingWeeklyCredentials,
+    UnsupportedWeeklyProductionMode,
     create_weekly_run_plan,
 )
 
@@ -576,7 +576,7 @@ def weekly_plan(
         str,
         typer.Option(
             "--mode",
-            help="Weekly LLM mode: dry-run or production.",
+            help="Weekly mode. PR 9 supports dry-run only.",
         ),
     ] = "dry-run",
     max_pages: Annotated[
@@ -595,15 +595,8 @@ def weekly_plan(
             help="Delay between network requests for collection stages.",
         ),
     ] = 2.0,
-    fail_on_missing_credentials: Annotated[
-        bool,
-        typer.Option(
-            "--fail-on-missing-credentials/--allow-missing-credentials",
-            help="Fail production plans when required LLM env vars are absent.",
-        ),
-    ] = True,
 ) -> None:
-    """Plan a safe weekly incremental review-artifact run."""
+    """Plan a safe weekly dry-run review-artifact workflow."""
     try:
         plan = create_weekly_run_plan(
             output_dir=output_dir,
@@ -611,9 +604,8 @@ def weekly_plan(
             mode=mode,
             max_pages=max_pages,
             request_delay_seconds=request_delay_seconds,
-            fail_on_missing_credentials=fail_on_missing_credentials,
         )
-    except MissingWeeklyCredentials as exc:
+    except UnsupportedWeeklyProductionMode as exc:
         raise typer.BadParameter(str(exc)) from exc
     console.print(
         f"Weekly plan mode={plan.mode}; commands={len(plan.commands)}; "

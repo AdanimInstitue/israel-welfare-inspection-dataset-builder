@@ -16,7 +16,7 @@ src/
       govil_client.py       conservative manual Gov.il HTTP client
       llm_extract.py        offline LLM candidate contracts/plumbing/evaluator
       reconcile.py          offline reconciliation and dry-run backfill plumbing
-      weekly.py             weekly workflow plan/artifact/credential contracts
+      weekly.py             weekly dry-run review-artifact plan contracts
       export.py             manual schema validation and local report exports
       manifest.py           source JSONL and diagnostics readers/writers
       models.py             Pydantic source discovery contracts

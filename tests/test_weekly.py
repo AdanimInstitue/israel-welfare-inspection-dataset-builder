@@ -8,7 +8,8 @@ from pathlib import Path
 import pytest
 
 from welfare_inspections.collect.weekly import (
-    MissingWeeklyCredentials,
+    UnsupportedWeeklyProductionMode,
+    WeeklyRunPlan,
     create_weekly_run_plan,
 )
 
@@ -26,6 +27,8 @@ def test_weekly_plan_builds_safe_dry_run_commands(tmp_path: Path) -> None:
     assert plan.mode == "dry-run"
     assert plan.allow_backfill is False
     assert plan.publishes_data is False
+    assert plan.production_supported is False
+    assert plan.incremental_status == "planned_not_enforced"
     stages = [command.stage for command in plan.commands]
     assert stages == [
         "discover",
@@ -35,13 +38,22 @@ def test_weekly_plan_builds_safe_dry_run_commands(tmp_path: Path) -> None:
         "render-pages",
         "extract-llm",
         "reconcile",
-        "export",
         "backfill-summary",
     ]
     llm_command = next(
         command for command in plan.commands if command.stage == "extract-llm"
     )
     assert llm_command.command[-2:] == ["--mode", "dry-run"]
+    assert not any(
+        "llm_metadata_candidates.jsonl" in path
+        for path in llm_command.upload_artifacts
+    )
+    reconcile_command = next(
+        command for command in plan.commands if command.stage == "reconcile"
+    )
+    assert reconcile_command.upload_artifacts == [
+        str(output_dir / "reconciliation_diagnostics.json")
+    ]
     assert "--max-pages" in plan.commands[0].command
     assert "2" in plan.commands[0].command
 
@@ -54,53 +66,65 @@ def test_weekly_plan_builds_safe_dry_run_commands(tmp_path: Path) -> None:
     assert json.loads(summary_path.read_text())["status"] == "planned"
     artifact_manifest = json.loads(artifact_manifest_path.read_text())
     assert "downloaded PDFs" in artifact_manifest["intentionally_excluded"]
+    assert "prompt payloads" in artifact_manifest["intentionally_excluded"]
     assert any(
         "llm_eval_report.json" in path
         for path in artifact_manifest["upload_paths"]
     )
+    assert not any("reports.csv" in path for path in artifact_manifest["upload_paths"])
+    assert not any(
+        "report_metadata.jsonl" in path for path in artifact_manifest["upload_paths"]
+    )
+    assert not any(
+        "llm_metadata_candidates.jsonl" in path
+        for path in artifact_manifest["upload_paths"]
+    )
 
 
-def test_weekly_plan_fails_closed_without_production_credentials(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.delenv("WELFARE_INSPECTIONS_LLM_PROVIDER", raising=False)
-    monkeypatch.delenv("WELFARE_INSPECTIONS_LLM_MODEL", raising=False)
-
-    with pytest.raises(MissingWeeklyCredentials, match="WELFARE_INSPECTIONS_LLM"):
+def test_weekly_plan_blocks_production_mode(tmp_path: Path) -> None:
+    with pytest.raises(UnsupportedWeeklyProductionMode, match="not supported"):
         create_weekly_run_plan(
             output_dir=tmp_path / "outputs" / "weekly",
             mode="production",
         )
 
-    summary = json.loads(
-        (tmp_path / "outputs" / "weekly" / "weekly_run_summary.json").read_text()
-    )
-    assert summary["status"] == "blocked_missing_credentials"
-    assert summary["missing_production_env"] == [
-        "WELFARE_INSPECTIONS_LLM_PROVIDER",
-        "WELFARE_INSPECTIONS_LLM_MODEL",
-    ]
+
+def test_weekly_plan_rejects_unknown_mode(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="mode must be dry-run"):
+        create_weekly_run_plan(
+            output_dir=tmp_path / "outputs" / "weekly",
+            mode="mock",
+        )
 
 
-def test_weekly_plan_can_record_missing_credentials_without_raising(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.delenv("WELFARE_INSPECTIONS_LLM_PROVIDER", raising=False)
-    monkeypatch.setenv("WELFARE_INSPECTIONS_LLM_MODEL", "test-model")
+def test_weekly_plan_rejects_invalid_limits(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="max_pages"):
+        create_weekly_run_plan(
+            output_dir=tmp_path / "outputs" / "weekly",
+            max_pages=0,
+        )
+    with pytest.raises(ValueError, match="request_delay_seconds"):
+        create_weekly_run_plan(
+            output_dir=tmp_path / "outputs" / "weekly",
+            request_delay_seconds=-1,
+        )
 
-    plan = create_weekly_run_plan(
-        output_dir=tmp_path / "outputs" / "weekly",
-        mode="production",
-        fail_on_missing_credentials=False,
-    )
 
-    assert plan.missing_production_env == ["WELFARE_INSPECTIONS_LLM_PROVIDER"]
-    llm_command = next(
-        command for command in plan.commands if command.stage == "extract-llm"
-    )
-    assert llm_command.command[-2:] == ["--mode", "production"]
+def test_weekly_plan_contract_rejects_backfills_and_publication() -> None:
+    base_payload = {
+        "mode": "dry-run",
+        "output_dir": "outputs/weekly",
+        "artifact_dir": "outputs/weekly/review_artifacts",
+        "max_pages": 1,
+        "request_delay_seconds": 0,
+        "unchanged_document_policy": "not enforced",
+        "artifact_manifest_path": "outputs/weekly/weekly_artifact_manifest.json",
+        "summary_path": "outputs/weekly/weekly_run_summary.json",
+    }
+    with pytest.raises(ValueError, match="historical backfills"):
+        WeeklyRunPlan.model_validate({**base_payload, "allow_backfill": True})
+    with pytest.raises(ValueError, match="publish data"):
+        WeeklyRunPlan.model_validate({**base_payload, "publishes_data": True})
 
 
 def test_weekly_plan_rejects_repo_local_non_outputs_path() -> None:
@@ -120,4 +144,23 @@ def test_cli_weekly_plan_help_works() -> None:
     )
 
     assert result.returncode == 0
-    assert "weekly incremental" in result.stdout
+    assert "weekly dry-run" in result.stdout
+
+
+def test_cli_weekly_plan_production_mode_fails() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "welfare_inspections.cli",
+            "weekly-plan",
+            "--mode",
+            "production",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "not supported" in result.stderr

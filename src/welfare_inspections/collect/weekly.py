@@ -1,8 +1,7 @@
-"""Weekly incremental workflow planning and artifact contracts."""
+"""Weekly review-artifact workflow planning contracts."""
 
 from __future__ import annotations
 
-import os
 from datetime import datetime
 from pathlib import Path
 
@@ -12,18 +11,12 @@ from welfare_inspections.collect.local_outputs import validate_local_output_path
 from welfare_inspections.collect.models import utc_now
 
 SCHEMA_VERSION = "weekly-run-plan-v1"
-REQUIRED_PRODUCTION_LLM_ENV = (
-    "WELFARE_INSPECTIONS_LLM_PROVIDER",
-    "WELFARE_INSPECTIONS_LLM_MODEL",
-)
-
-
-class MissingWeeklyCredentials(RuntimeError):
-    """Raised when a production weekly plan lacks required credentials."""
+class UnsupportedWeeklyProductionMode(RuntimeError):
+    """Raised when production weekly execution is requested before it exists."""
 
 
 class WeeklyCommandPlan(BaseModel):
-    """One CLI stage planned for a weekly incremental run."""
+    """One CLI stage planned for a weekly dry-run review."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -50,21 +43,21 @@ class WeeklyArtifactManifest(BaseModel):
 
 
 class WeeklyRunPlan(BaseModel):
-    """Dry-run friendly plan for GitHub Actions weekly artifact generation."""
+    """Dry-run plan for GitHub Actions review artifact generation."""
 
     model_config = ConfigDict(extra="forbid")
 
     schema_version: str = SCHEMA_VERSION
     generated_at: datetime = Field(default_factory=utc_now)
-    mode: str = Field(pattern="^(dry-run|production)$")
+    mode: str = Field(pattern="^dry-run$")
     output_dir: str
     artifact_dir: str
     max_pages: int = Field(ge=1)
     request_delay_seconds: float = Field(ge=0)
     allow_backfill: bool = False
     publishes_data: bool = False
-    required_production_env: list[str] = Field(default_factory=list)
-    missing_production_env: list[str] = Field(default_factory=list)
+    production_supported: bool = False
+    incremental_status: str = "planned_not_enforced"
     version_contract: dict[str, str] = Field(default_factory=dict)
     unchanged_document_policy: str
     commands: list[WeeklyCommandPlan] = Field(default_factory=list)
@@ -95,7 +88,8 @@ class WeeklyRunSummary(BaseModel):
     output_dir: str
     artifact_dir: str
     plan_path: str
-    missing_production_env: list[str] = Field(default_factory=list)
+    production_supported: bool = False
+    incremental_status: str = "planned_not_enforced"
     notes: list[str] = Field(default_factory=list)
 
 
@@ -106,11 +100,16 @@ def create_weekly_run_plan(
     mode: str = "dry-run",
     max_pages: int = 1,
     request_delay_seconds: float = 2.0,
-    fail_on_missing_credentials: bool = True,
 ) -> WeeklyRunPlan:
     """Write the weekly plan, artifact manifest, and summary sidecars."""
-    if mode not in {"dry-run", "production"}:
-        msg = "mode must be one of: dry-run, production"
+    if mode == "production":
+        msg = (
+            "Production weekly runs are not supported until live LLM provider "
+            "calls and incremental reuse are implemented. Use --mode dry-run."
+        )
+        raise UnsupportedWeeklyProductionMode(msg)
+    if mode != "dry-run":
+        msg = "mode must be dry-run"
         raise ValueError(msg)
     if max_pages < 1:
         msg = "max_pages must be at least 1"
@@ -123,7 +122,6 @@ def create_weekly_run_plan(
     validate_local_output_path(output_dir, label="weekly output directory")
     validate_local_output_path(artifact_dir, label="weekly artifact directory")
 
-    missing_env = _missing_production_env(mode)
     paths = _weekly_paths(output_dir)
     commands = _weekly_commands(
         paths=paths,
@@ -153,10 +151,6 @@ def create_weekly_run_plan(
         artifact_dir=str(artifact_dir),
         max_pages=max_pages,
         request_delay_seconds=request_delay_seconds,
-        required_production_env=list(REQUIRED_PRODUCTION_LLM_ENV)
-        if mode == "production"
-        else [],
-        missing_production_env=missing_env,
         version_contract={
             "schema": "report.schema.json and sidecar schema versions",
             "source_identity": "source_document_id plus pdf_sha256",
@@ -165,18 +159,17 @@ def create_weekly_run_plan(
             "reconciliation": "schema_version and reconciler_version",
         },
         unchanged_document_policy=(
-            "Treat source documents as reusable only when pdf_sha256 and all "
-            "schema/model/prompt/render/reconciler versions match the active "
-            "run plan; otherwise produce review diagnostics rather than hiding "
-            "a backfill inside the weekly job."
+            "PR 9 records the identity and version fields needed for future "
+            "reuse decisions, but this dry-run workflow does not enforce "
+            "new/changed/unchanged classification yet."
         ),
         commands=commands,
         artifact_manifest_path=str(paths["artifact_manifest"]),
         summary_path=str(paths["summary"]),
         notes=[
-            "Scheduled and manual dry-run modes are safe review-artifact runs.",
-            "Production mode requires LLM provider configuration before source "
-            "collection begins.",
+            "Scheduled and manual runs are dry-run review-artifact runs.",
+            "Production weekly execution remains blocked until live LLM provider "
+            "calls and incremental reuse are implemented.",
             "Historical backfills remain explicit dry-run review commands and "
             "are not launched implicitly by the weekly job.",
         ],
@@ -185,29 +178,19 @@ def create_weekly_run_plan(
     _write_model_json(paths["plan"], plan)
     _write_model_json(paths["artifact_manifest"], artifact_manifest)
     summary = WeeklyRunSummary(
-        status="blocked_missing_credentials" if missing_env else "planned",
+        status="planned",
         mode=mode,
         output_dir=str(output_dir),
         artifact_dir=str(artifact_dir),
         plan_path=str(paths["plan"]),
-        missing_production_env=missing_env,
+        production_supported=False,
+        incremental_status="planned_not_enforced",
         notes=[
             "Run the planned commands only after this summary has status=planned."
         ],
     )
     _write_model_json(paths["summary"], summary)
-
-    if missing_env and fail_on_missing_credentials:
-        names = ", ".join(missing_env)
-        msg = f"Production weekly workflow requires missing environment: {names}."
-        raise MissingWeeklyCredentials(msg)
     return plan
-
-
-def _missing_production_env(mode: str) -> list[str]:
-    if mode != "production":
-        return []
-    return [name for name in REQUIRED_PRODUCTION_LLM_ENV if not os.getenv(name)]
 
 
 def _weekly_paths(output_dir: Path) -> dict[str, Path]:
@@ -232,7 +215,6 @@ def _weekly_paths(output_dir: Path) -> dict[str, Path]:
         "llm_eval_report": output_dir / "llm_eval_report.json",
         "reconciled_metadata": output_dir / "reconciled_report_metadata.jsonl",
         "reconciliation_diagnostics": output_dir / "reconciliation_diagnostics.json",
-        "exports": output_dir / "exports",
         "backfill_diagnostics": output_dir / "backfill_diagnostics.json",
     }
 
@@ -384,12 +366,11 @@ def _weekly_commands(
                 str(paths["llm_eval_report"]),
             ],
             upload_artifacts=[
-                str(paths["llm_candidates"]),
                 str(paths["llm_diagnostics"]),
                 str(paths["llm_eval_report"]),
             ],
-            network_required=mode == "production",
-            notes=["Production mode is fail-closed unless LLM credentials exist."],
+            network_required=False,
+            notes=["Dry-run mode writes empty candidates and evaluation diagnostics."],
         ),
         WeeklyCommandPlan(
             stage="reconcile",
@@ -414,27 +395,8 @@ def _weekly_commands(
                 str(paths["reconciliation_diagnostics"]),
             ],
             upload_artifacts=[
-                str(paths["reconciled_metadata"]),
                 str(paths["reconciliation_diagnostics"]),
             ],
-        ),
-        WeeklyCommandPlan(
-            stage="export",
-            command=[
-                "python",
-                "-m",
-                "welfare_inspections.cli",
-                "export",
-                "--metadata",
-                str(paths["metadata"]),
-                "--metadata-diagnostics",
-                str(paths["metadata_diagnostics"]),
-                "--output-dir",
-                str(paths["exports"]),
-            ],
-            outputs=[str(paths["exports"])],
-            upload_artifacts=[str(paths["exports"] / "export_diagnostics.json")],
-            notes=["Exports are review artifacts only and are not published."],
         ),
         WeeklyCommandPlan(
             stage="backfill-summary",
@@ -475,7 +437,6 @@ def _required_review_artifacts(paths: dict[str, Path]) -> list[str]:
         str(paths["llm_eval_report"]),
         str(paths["reconciliation_diagnostics"]),
         str(paths["backfill_diagnostics"]),
-        str(paths["exports"] / "export_diagnostics.json"),
     ]
 
 
@@ -486,12 +447,7 @@ def _upload_paths(paths: dict[str, Path]) -> list[str]:
         str(paths["artifact_manifest"]),
         str(paths["source_manifest"]),
         str(paths["download_manifest"]),
-        str(paths["metadata"]),
         str(paths["render_manifest"]),
-        str(paths["llm_candidates"]),
-        str(paths["reconciled_metadata"]),
-        str(paths["exports"] / "reports.jsonl"),
-        str(paths["exports"] / "reports.csv"),
         *_required_review_artifacts(paths),
     ]
 

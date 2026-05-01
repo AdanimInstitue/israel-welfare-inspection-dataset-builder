@@ -121,15 +121,15 @@ methods and LLM candidate references where available. Material conflicts stay
 records input hashes and change counters without live collection or canonical
 overwrites.
 
-PR 9 adds workflow orchestration plumbing without changing publication behavior.
-The `weekly-plan` command writes a version/checksum-aware plan, artifact
-manifest, and run summary under ignored local outputs. The GitHub Actions
-workflow defaults to dry-run/manual-dispatch-friendly review artifacts, fails
-before source collection when production LLM credentials are missing, and
-uploads diagnostics, manifests, LLM evaluation reports, reconciliation
-diagnostics, export diagnostics, and dry-run backfill summaries for human
-review. It does not commit artifacts, publish data, or launch historical
-backfills implicitly.
+PR 9 adds dry-run workflow orchestration plumbing without changing publication
+behavior. The `weekly-plan` command writes a plan, artifact manifest, and run
+summary under ignored local outputs. The plan records the identity and version
+fields needed for future new/changed/unchanged reuse decisions, but PR 9 does
+not enforce incremental cache reuse yet. The GitHub Actions workflow is
+dry-run-only, uploads explicit diagnostics and review manifests for human
+review, and blocks production weekly mode until live LLM provider calls and
+real incremental reuse exist. It does not commit artifacts, publish data, run
+deterministic exports, or launch historical backfills implicitly.
 
 OCR remains optional infrastructure for future quality improvement, but it is
 not the main answer to the current PDF issue. When OCR is used, it should be
@@ -165,11 +165,12 @@ Both modes should produce diagnostics and review artifacts before data-repo
 publication, including LLM evaluation reports when LLM-derived fields are in
 scope. Backfills should not be hidden inside weekly jobs.
 
-The PR 9 weekly workflow implements this separation as a review-artifact gate:
-weekly runs can call the existing discover, download, parse, parse-metadata,
-render-pages, extract-llm, reconcile, export, and dry-run backfill-summary
-commands, but the backfill step is only a diagnostics summary over the current
-incremental outputs. Historical reprocessing remains explicit future work.
+The PR 9 weekly workflow implements the first review-artifact gate: dry-run
+runs can call the existing discover, download, parse, parse-metadata,
+render-pages, extract-llm, reconcile, and dry-run backfill-summary commands,
+but the backfill step is only a diagnostics summary over the current run
+outputs. Historical reprocessing and reconciled canonical exports remain
+explicit future work.
 
 ## Intended Builder Layout
 
