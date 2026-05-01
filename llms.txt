@@ -16,6 +16,7 @@ src/
       govil_client.py       conservative manual Gov.il HTTP client
       llm_extract.py        offline LLM candidate contracts/plumbing/evaluator
       reconcile.py          offline reconciliation and dry-run backfill plumbing
+      weekly.py             weekly dry-run review-artifact plan contracts
       export.py             manual schema validation and local report exports
       manifest.py           source JSONL and diagnostics readers/writers
       models.py             Pydantic source discovery contracts
@@ -50,6 +51,7 @@ tests/
   test_pdf_render.py synthetic page rendering/artifact contract tests
   test_llm_extract.py mocked LLM candidate/evaluation contract tests
   test_reconcile.py synthetic reconciliation/backfill contract tests
+  test_weekly.py   synthetic weekly workflow planning/artifact guard tests
   test_source_discovery.py mocked discovery/parser/manifest tests
   test_metadata_parser.py synthetic top-level metadata parser tests
   test_export.py      synthetic schema validation/local export tests
@@ -71,6 +73,7 @@ data_samples/
 
 .github/
   workflows/ci.yml
+  workflows/weekly-artifacts.yml
   workflows/pr-agent-context-refresh.yml
   pr-agent-context-template.md
 ```
@@ -105,6 +108,9 @@ data_samples/
 - Manual v0 preview publication plan:
   `docs/implementation_plan.md`, `docs/operations.md`,
   `docs/privacy_and_publication_policy.md`, and `docs/data_quality.md`
+- Weekly review-artifact planning contract:
+  `src/welfare_inspections/collect/weekly.py`,
+  `.github/workflows/weekly-artifacts.yml`, and `docs/operations.md`
 
 ## Current Planning Direction
 
@@ -131,7 +137,9 @@ LLM planning constraints:
 
 - Local validation: `python -m pip install -e ".[dev]"`, `ruff check .`,
   `pytest`, `python -m welfare_inspections.cli reconcile --help`,
-  `python -m welfare_inspections.cli backfill --help`
+  `python -m welfare_inspections.cli backfill --help`,
+  `python -m welfare_inspections.cli weekly-plan --help`
 - CI: `.github/workflows/ci.yml`
+- Weekly review artifacts: `.github/workflows/weekly-artifacts.yml`
 - PR context comments and patch coverage: `pr-agent-context` job in CI
 - Review/check refresh comments: `.github/workflows/pr-agent-context-refresh.yml`

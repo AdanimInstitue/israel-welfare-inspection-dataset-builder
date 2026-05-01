@@ -45,6 +45,13 @@ Malformed LLM candidate provenance, duplicate candidate IDs, duplicate report or
 decision IDs, and material deterministic/LLM conflicts are diagnostics rather
 than silent overwrites.
 
+PR 9 validates weekly workflow safety through a planning contract rather than
+live CI collection. The `weekly-plan` command records stage commands, required
+review artifact paths, identity/version fields for future reuse decisions, and
+excluded artifact classes. Production weekly mode is blocked until live LLM
+provider calls and real incremental reuse are implemented. Tests cover this
+blocking behavior without real secrets or live provider calls.
+
 ## Row-Level Failure Handling
 
 The pipeline should prefer row-level warnings over full pipeline failure when a
@@ -126,6 +133,11 @@ they carry source evidence, model/prompt provenance, and reconciliation status.
 The PR 8 reconciler makes unresolved reconciliation explicit. Any report with a
 `needs_review` decision should block publication until reviewed or resolved by
 future deterministic rules or explicit agreement thresholds.
+
+The PR 9 weekly workflow reinforces this gate by uploading reconciliation
+diagnostics, LLM evaluation reports, source/download/render diagnostics, and a
+dry-run backfill summary without publishing. A successful artifact upload is
+not a publication approval; it is review input for the later data-repo PR flow.
 
 ## Backfill Quality Gate
 

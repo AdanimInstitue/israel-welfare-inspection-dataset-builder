@@ -229,20 +229,36 @@ Acceptance criteria:
 Tasks:
 
 - Add a safe weekly workflow for discover/download/parse/render/LLM
-  extraction/reconcile/export artifact generation.
+  extraction/reconcile review artifact generation. Done via
+  `.github/workflows/weekly-artifacts.yml`, which keeps scheduled and manual
+  runs in dry-run LLM mode and uploads explicit review artifacts only.
 - Reuse existing artifacts when source checksum and schema/model/prompt/render
-  versions are unchanged.
-- Upload diagnostics and review artifacts without publishing directly.
+  versions are unchanged. Partially done as a planning contract in
+  `welfare-inspections weekly-plan`; PR 9 records the active source identity
+  and version fields needed for future reuse decisions, but does not enforce
+  new/changed/unchanged cache behavior yet.
+- Upload diagnostics and review artifacts without publishing directly. Done for
+  explicit diagnostics, manifests, LLM evaluation reports, reconciliation
+  diagnostics, and dry-run backfill summaries.
 - Upload LLM evaluation reports with extraction and reconciliation artifacts.
+  Done structurally through the existing `extract-llm` evaluator and workflow
+  upload paths.
 
 Acceptance criteria:
 
 - Workflow is credential-aware and fails clearly when required LLM credentials
-  are missing.
-- CI remains offline and deterministic.
-- Weekly jobs do not run historical backfills implicitly.
+  are missing. Superseded for PR 9: production weekly mode is blocked entirely
+  until live LLM provider calls and real incremental reuse are implemented. The
+  GitHub workflow cannot pass planning and then fail later in production LLM
+  extraction.
+- CI remains offline and deterministic. Done: normal CI is unchanged, and PR 9
+  tests use only synthetic/offline planning contracts.
+- Weekly jobs do not run historical backfills implicitly. Done: the weekly
+  workflow includes only a dry-run backfill summary over current reconciled
+  outputs and records that historical backfills require explicit invocation.
 - Data-repo publication remains blocked when required LLM evaluation, schema,
-  reconciliation, or privacy gates fail.
+  reconciliation, or privacy gates fail. Done by keeping the workflow
+  non-publishing, dry-run-only, and review-artifact-only.
 
 ## PR 10: Publish PR Flow Into Data Repo
 
