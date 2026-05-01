@@ -145,29 +145,41 @@ Pause point:
 
 Tasks:
 
-- Add ignored local page rendering outputs for downloaded PDFs.
+- Add ignored local page rendering outputs for downloaded PDFs. Done under
+  `outputs/rendered_pages` by the inert `render-pages` command.
 - Add schema/Pydantic contracts for LLM extraction candidates and diagnostics.
+  Done in `collect.models`, `collect.llm_extract`, and
+  `schemas/llm_extraction_candidate.schema.json`.
 - Add schema/Pydantic contracts for rendered page artifacts, including render
-  settings, page/crop identity, checksums, and coordinate conventions.
+  settings, page/crop identity, checksums, and coordinate conventions. Done in
+  `collect.models`, `collect.pdf_render`, and
+  `schemas/rendered_page_artifact.schema.json`.
 - Add a required-but-inert-by-default `welfare-inspections extract-llm` command
-  that can run in production when provider configuration is present.
-- Support embedded-text and multimodal page-image inputs.
+  that can run in production when provider configuration is present. Done with
+  default `dry-run`, explicit `mock`, and fail-closed `production` modes.
+- Support embedded-text and multimodal page-image inputs. Done at the contract
+  and plumbing layer through PR 4 text diagnostics and rendered artifact
+  manifests.
 - Store model name, prompt/template version, prompt input hash, input artifact
   hashes, page evidence, confidence, warnings, and validation status for every
-  candidate.
+  candidate. Done for valid candidate manifest records.
 - Add a small reviewed LLM evaluation fixture set and an offline evaluator that
   compares candidate outputs to expected field values without calling a live
-  provider.
-- Add mocked/offline tests only; no live LLM calls in CI.
+  provider. Done as a JSONL fixture contract and evaluator stub; no real
+  reviewed fixture PDFs are committed.
+- Add mocked/offline tests only; no live LLM calls in CI. Done with synthetic
+  PDFs and JSONL mock provider responses.
 
 Acceptance criteria:
 
 - Production extraction fails closed if required LLM provider configuration is
-  absent, unless explicitly run in dry-run/test mode.
-- LLM outputs are candidate manifests, not accepted canonical rows.
+  absent, unless explicitly run in dry-run/test mode. Done for missing
+  `WELFARE_INSPECTIONS_LLM_PROVIDER` or `WELFARE_INSPECTIONS_LLM_MODEL`.
+- LLM outputs are candidate manifests, not accepted canonical rows. Done.
 - The evaluation report records model, prompt, renderer, schema, field-level
   coverage, field-level correctness, and regressions against the last accepted
-  baseline.
+  baseline. Done structurally; regression comparison is a stub with zero
+  regressions until a baseline artifact exists.
 - Publication and backfill planning treat failed LLM evaluation thresholds as a
   release blocker, even when schema validation passes.
 - No prompt, response, image, or PDF artifacts are committed to the builder

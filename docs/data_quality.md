@@ -33,6 +33,12 @@ normalized values. LLM and OCR candidates should also fail validation when they
 lack immutable input identity, including source PDF SHA-256, prompt input hash,
 and rendered page/crop hashes where applicable.
 
+PR 7 validates rendered page artifacts and LLM candidates with Pydantic
+contracts and committed JSON Schemas. Mocked LLM responses that omit required
+provenance, include malformed date values, lack field evidence, or omit
+required text/image input identity are preserved as extraction diagnostics
+instead of being emitted as valid candidate rows.
+
 ## Row-Level Failure Handling
 
 The pipeline should prefer row-level warnings over full pipeline failure when a
@@ -90,6 +96,11 @@ Before publication:
 Mocked provider tests are required for deterministic CI, but they are not a
 quality gate by themselves. They only prove that the code can handle a shaped
 response.
+
+The PR 7 evaluator is offline and deterministic. It compares candidate manifests
+to JSONL expected values, records field-level coverage and correctness, and
+keeps regression reporting as a structural field until a reviewed baseline is
+available.
 
 ## v0 Preview Quality Gate
 

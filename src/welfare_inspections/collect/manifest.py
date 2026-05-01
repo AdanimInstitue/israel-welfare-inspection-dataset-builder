@@ -10,7 +10,12 @@ from welfare_inspections.collect.models import (
     DiscoveryRunDiagnostics,
     DownloadRunDiagnostics,
     ExportRunDiagnostics,
+    LLMEvaluationReport,
+    LLMExtractionCandidate,
+    LLMExtractionRunDiagnostics,
     MetadataParseRunDiagnostics,
+    PageRenderRunDiagnostics,
+    RenderedPageArtifact,
     ReportMetadataRecord,
     SourceDocumentRecord,
     TextExtractionRunDiagnostics,
@@ -63,6 +68,50 @@ def write_metadata_manifest(path: Path, records: list[ReportMetadataRecord]) -> 
     _atomic_write_text(path, "\n".join(lines) + ("\n" if lines else ""))
 
 
+def read_rendered_page_manifest(path: Path) -> list[RenderedPageArtifact]:
+    records: list[RenderedPageArtifact] = []
+    lines = path.read_text(encoding="utf-8").splitlines()
+    for line_number, line in enumerate(lines, 1):
+        if not line.strip():
+            continue
+        try:
+            records.append(RenderedPageArtifact.model_validate_json(line))
+        except ValueError as exc:
+            msg = f"Invalid rendered page manifest JSONL at {path}:{line_number}"
+            raise ValueError(msg) from exc
+    return records
+
+
+def write_rendered_page_manifest(
+    path: Path,
+    records: list[RenderedPageArtifact],
+) -> None:
+    lines = [record.model_dump_json() for record in records]
+    _atomic_write_text(path, "\n".join(lines) + ("\n" if lines else ""))
+
+
+def read_llm_candidate_manifest(path: Path) -> list[LLMExtractionCandidate]:
+    records: list[LLMExtractionCandidate] = []
+    lines = path.read_text(encoding="utf-8").splitlines()
+    for line_number, line in enumerate(lines, 1):
+        if not line.strip():
+            continue
+        try:
+            records.append(LLMExtractionCandidate.model_validate_json(line))
+        except ValueError as exc:
+            msg = f"Invalid LLM candidate manifest JSONL at {path}:{line_number}"
+            raise ValueError(msg) from exc
+    return records
+
+
+def write_llm_candidate_manifest(
+    path: Path,
+    records: list[LLMExtractionCandidate],
+) -> None:
+    lines = [record.model_dump_json() for record in records]
+    _atomic_write_text(path, "\n".join(lines) + ("\n" if lines else ""))
+
+
 def write_discovery_diagnostics(
     path: Path,
     diagnostics: DiscoveryRunDiagnostics,
@@ -93,3 +142,21 @@ def write_metadata_parse_diagnostics(
 
 def write_export_diagnostics(path: Path, diagnostics: ExportRunDiagnostics) -> None:
     _write_model_json(path, diagnostics)
+
+
+def write_page_render_diagnostics(
+    path: Path,
+    diagnostics: PageRenderRunDiagnostics,
+) -> None:
+    _write_model_json(path, diagnostics)
+
+
+def write_llm_extraction_diagnostics(
+    path: Path,
+    diagnostics: LLMExtractionRunDiagnostics,
+) -> None:
+    _write_model_json(path, diagnostics)
+
+
+def write_llm_evaluation_report(path: Path, report: LLMEvaluationReport) -> None:
+    _write_model_json(path, report)

@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://adanim-institute.example/schemas/rendered_page_artifact.schema.json",
+  "title": "Rendered Page Artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rendered_artifact_id",
+    "source_document_id",
+    "source_pdf_sha256",
+    "page_number",
+    "artifact_type",
+    "renderer_name",
+    "renderer_version",
+    "render_profile_id",
+    "render_profile_version",
+    "dpi",
+    "colorspace",
+    "image_format",
+    "rotation_degrees",
+    "coordinate_system",
+    "width_px",
+    "height_px",
+    "image_sha256",
+    "local_path",
+    "rendered_at"
+  ],
+  "properties": {
+    "rendered_artifact_id": { "type": "string", "minLength": 1 },
+    "source_document_id": { "type": "string", "minLength": 1 },
+    "source_pdf_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "page_number": { "type": "integer", "minimum": 1 },
+    "artifact_type": { "enum": ["page", "crop"] },
+    "parent_rendered_artifact_id": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "renderer_name": { "type": "string", "minLength": 1 },
+    "renderer_version": { "type": "string", "minLength": 1 },
+    "render_profile_id": { "type": "string", "minLength": 1 },
+    "render_profile_version": { "type": "string", "minLength": 1 },
+    "dpi": { "type": "integer", "minimum": 1 },
+    "colorspace": { "type": "string", "minLength": 1 },
+    "image_format": { "type": "string", "minLength": 1 },
+    "rotation_degrees": { "type": "integer" },
+    "crop_box": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "coordinate_system": { "type": "string", "minLength": 1 },
+    "width_px": { "type": "integer", "minimum": 1 },
+    "height_px": { "type": "integer", "minimum": 1 },
+    "image_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "local_path": { "type": "string", "minLength": 1 },
+    "rendered_at": { "type": "string", "format": "date-time" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "artifact_type": { "const": "page" }
+        }
+      },
+      "then": {
+        "properties": {
+          "crop_box": { "type": "null" }
+        }
+      },
+      "else": {
+        "properties": {
+          "crop_box": { "type": "object" }
+        },
+        "required": ["crop_box"]
+      }
+    }
+  ]
+}

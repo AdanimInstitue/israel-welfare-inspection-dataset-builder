@@ -47,6 +47,10 @@ reconciliation, or privacy concerns.
 Add PDF page rendering plus required schema-bound text and multimodal LLM
 candidate extraction. Define immutable rendered-page/input provenance and add
 offline LLM evaluation reporting. Keep CI offline with mocked LLM responses.
+Implemented as local `render-pages` and `extract-llm` commands, sidecar
+contracts, mocked provider plumbing, and an offline evaluator stub. Live LLM
+provider calls, reconciliation, backfill, OCR, finding-level extraction, and
+publication remain later roadmap items.
 
 ## PR 8: Candidate Reconciliation and Backfill
 

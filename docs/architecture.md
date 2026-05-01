@@ -105,6 +105,13 @@ requires an evaluation report with field-level coverage, correctness, and
 regressions for the active schema, model, prompt, renderer, and reconciler
 versions before publication.
 
+PR 7 implements the first local contracts for this architecture: full-page
+rendered PNG artifacts with immutable image/PDF hashes, schema-bound LLM
+candidate manifests, fail-closed production provider configuration checks,
+dry-run/mock offline extraction modes, and an offline evaluation report stub.
+These artifacts remain local sidecars until a later reconciliation PR accepts
+candidate values into canonical rows.
+
 OCR remains optional infrastructure for future quality improvement, but it is
 not the main answer to the current PDF issue. When OCR is used, it should be
 treated as another candidate source and reconciled with the same provenance and

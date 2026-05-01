@@ -24,6 +24,9 @@ REQUIRED_SCHEMAS = [
     "schemas/facility.schema.json",
     "schemas/inspection.schema.json",
     "schemas/datapackage.schema.json",
+    "schemas/rendered_page_artifact.schema.json",
+    "schemas/llm_extraction_candidate.schema.json",
+    "schemas/llm_evaluation_report.schema.json",
 ]
 
 
