@@ -121,6 +121,16 @@ methods and LLM candidate references where available. Material conflicts stay
 records input hashes and change counters without live collection or canonical
 overwrites.
 
+PR 9 adds workflow orchestration plumbing without changing publication behavior.
+The `weekly-plan` command writes a version/checksum-aware plan, artifact
+manifest, and run summary under ignored local outputs. The GitHub Actions
+workflow defaults to dry-run/manual-dispatch-friendly review artifacts, fails
+before source collection when production LLM credentials are missing, and
+uploads diagnostics, manifests, LLM evaluation reports, reconciliation
+diagnostics, export diagnostics, and dry-run backfill summaries for human
+review. It does not commit artifacts, publish data, or launch historical
+backfills implicitly.
+
 OCR remains optional infrastructure for future quality improvement, but it is
 not the main answer to the current PDF issue. When OCR is used, it should be
 treated as another candidate source and reconciled with the same provenance and
@@ -154,6 +164,12 @@ The project needs two distinct operating modes:
 Both modes should produce diagnostics and review artifacts before data-repo
 publication, including LLM evaluation reports when LLM-derived fields are in
 scope. Backfills should not be hidden inside weekly jobs.
+
+The PR 9 weekly workflow implements this separation as a review-artifact gate:
+weekly runs can call the existing discover, download, parse, parse-metadata,
+render-pages, extract-llm, reconcile, export, and dry-run backfill-summary
+commands, but the backfill step is only a diagnostics summary over the current
+incremental outputs. Historical reprocessing remains explicit future work.
 
 ## Intended Builder Layout
 

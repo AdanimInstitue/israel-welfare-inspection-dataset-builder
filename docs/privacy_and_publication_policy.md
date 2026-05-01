@@ -49,6 +49,12 @@ fails closed without explicit provider/model configuration. Generated images,
 prompt payloads, raw responses, candidates, diagnostics, and evaluation reports
 remain under ignored local output directories until separately reviewed.
 
+PR 9 weekly review-artifact uploads intentionally exclude downloaded PDFs,
+rendered page images, prompt payloads, and raw provider responses. Uploaded
+artifacts are limited to manifests, diagnostics, LLM evaluation reports,
+reconciliation sidecars, export diagnostics, and run summaries needed for
+review. The workflow does not publish data to the paired repository.
+
 ## Data Repository Placeholders
 
 The paired data repository should eventually include `NOTICE.md`,

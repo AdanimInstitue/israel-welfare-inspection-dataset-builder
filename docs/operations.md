@@ -8,8 +8,9 @@ diagnostics. PR 6 adds a manual schema validation and local export layer that
 reads PR 5 metadata JSONL and diagnostics. PR 7 adds manual page rendering,
 schema-bound LLM candidate plumbing, and offline evaluation reporting. PR 8 adds
 manual candidate reconciliation and diagnostics-first dry-run backfill
-plumbing. These commands are inert by default and write ignored local outputs.
-CI remains offline and uses mocked or synthetic inputs only.
+plumbing. PR 9 adds weekly review-artifact planning and GitHub Actions plumbing.
+These commands are inert by default and write ignored local outputs. CI remains
+offline and uses mocked or synthetic inputs only.
 
 Real PDF inspection showed that embedded-text parsing alone is not sufficient
 for useful publication. The production pipeline therefore needs required
@@ -31,6 +32,7 @@ Current manual commands:
 - `welfare-inspections extract-llm`
 - `welfare-inspections reconcile`
 - `welfare-inspections backfill`
+- `welfare-inspections weekly-plan`
 - `welfare-inspections export`
 
 Planned future commands:
@@ -55,6 +57,8 @@ Expected behavior:
   `needs_review`.
 - `backfill` reprocesses historical documents when model, prompt, schema,
   renderer, parser, or reconciliation versions change.
+- `weekly-plan` writes a safe incremental run plan, credential summary, and
+  artifact manifest for scheduled/manual review-artifact workflows.
 - `export` validates parsed report metadata and emits local CSV/JSONL outputs.
 - `build` will later chain broader dataset outputs into a local output
   directory.
@@ -225,6 +229,40 @@ optionally references an LLM evaluation report, records input hashes and change
 counts, and writes `outputs/backfill_diagnostics.json`. It does not perform
 historical live collection, publication, or canonical overwrite.
 
+Current PR 9 weekly plan command:
+
+```bash
+welfare-inspections weekly-plan \
+  --output-dir outputs/weekly \
+  --artifact-dir outputs/weekly/review_artifacts \
+  --mode dry-run \
+  --max-pages 1 \
+  --request-delay-seconds 2
+```
+
+The command writes `weekly_run_plan.json`, `weekly_run_summary.json`, and
+`weekly_artifact_manifest.json` under ignored local outputs. The plan records
+the stage commands for `discover`, `download`, `parse`, `parse-metadata`,
+`render-pages`, `extract-llm`, `reconcile`, `export`, and a dry-run
+`backfill` summary. It also records the active identity/version contract:
+`source_document_id`, `pdf_sha256`, schema versions, model/prompt versions,
+render profile, and reconciler version must match before artifacts are treated
+as unchanged. If any of those change, a weekly run should emit review
+diagnostics and leave historical reprocessing to an explicit backfill.
+
+Manual production planning:
+
+```bash
+welfare-inspections weekly-plan \
+  --output-dir outputs/weekly \
+  --mode production
+```
+
+Production mode fails before source collection unless
+`WELFARE_INSPECTIONS_LLM_PROVIDER` and `WELFARE_INSPECTIONS_LLM_MODEL` are set.
+Dry-run mode does not require provider credentials and is the default for safe
+scheduled/manual review runs.
+
 ## Weekly Incremental Jobs and Backfills
 
 Weekly incremental jobs:
@@ -235,8 +273,16 @@ Weekly incremental jobs:
   checksum, schema, renderer, model, prompt, and reconciler versions are
   unchanged
 - run required LLM extraction for new or changed documents
-- export review artifacts and open a data-repo PR only after validation,
-  reconciliation, privacy, and LLM evaluation gates pass
+- export review artifacts and leave data-repo PR publication to a separate
+  explicit publication workflow after validation, reconciliation, privacy, and
+  LLM evaluation gates pass
+
+The PR 9 workflow is `.github/workflows/weekly-artifacts.yml`. It runs on a
+weekly schedule and by manual dispatch, uploads only JSON/JSONL/CSV diagnostics
+and review sidecars from `outputs/weekly`, retains artifacts for short-term
+review, and never commits generated outputs. Downloaded PDFs, rendered images,
+prompt payloads, raw provider responses, and publication artifacts are
+intentionally excluded from uploads.
 
 Backfill jobs:
 

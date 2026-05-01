@@ -32,6 +32,10 @@ from welfare_inspections.collect.settings import (
     DownloadSettings,
     ParseSettings,
 )
+from welfare_inspections.collect.weekly import (
+    MissingWeeklyCredentials,
+    create_weekly_run_plan,
+)
 
 app = typer.Typer(
     name="welfare-inspections",
@@ -549,6 +553,71 @@ def backfill(
         f"no_baseline={diagnostics.no_baseline_count}; "
         f"unresolved={diagnostics.unresolved_count}; "
         f"rejected={diagnostics.rejected_count}"
+    )
+
+
+@app.command("weekly-plan")
+def weekly_plan(
+    output_dir: Annotated[
+        Path,
+        typer.Option(
+            "--output-dir",
+            help="Ignored local directory for weekly run sidecars.",
+        ),
+    ] = Path("outputs/weekly"),
+    artifact_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--artifact-dir",
+            help="Ignored local directory reserved for uploaded review artifacts.",
+        ),
+    ] = None,
+    mode: Annotated[
+        str,
+        typer.Option(
+            "--mode",
+            help="Weekly LLM mode: dry-run or production.",
+        ),
+    ] = "dry-run",
+    max_pages: Annotated[
+        int,
+        typer.Option(
+            "--max-pages",
+            min=1,
+            help="Maximum Gov.il collector pages for the weekly source probe.",
+        ),
+    ] = 1,
+    request_delay_seconds: Annotated[
+        float,
+        typer.Option(
+            "--request-delay-seconds",
+            min=0.0,
+            help="Delay between network requests for collection stages.",
+        ),
+    ] = 2.0,
+    fail_on_missing_credentials: Annotated[
+        bool,
+        typer.Option(
+            "--fail-on-missing-credentials/--allow-missing-credentials",
+            help="Fail production plans when required LLM env vars are absent.",
+        ),
+    ] = True,
+) -> None:
+    """Plan a safe weekly incremental review-artifact run."""
+    try:
+        plan = create_weekly_run_plan(
+            output_dir=output_dir,
+            artifact_dir=artifact_dir,
+            mode=mode,
+            max_pages=max_pages,
+            request_delay_seconds=request_delay_seconds,
+            fail_on_missing_credentials=fail_on_missing_credentials,
+        )
+    except MissingWeeklyCredentials as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    console.print(
+        f"Weekly plan mode={plan.mode}; commands={len(plan.commands)}; "
+        f"summary={plan.summary_path}"
     )
 
 

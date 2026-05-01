@@ -229,20 +229,35 @@ Acceptance criteria:
 Tasks:
 
 - Add a safe weekly workflow for discover/download/parse/render/LLM
-  extraction/reconcile/export artifact generation.
+  extraction/reconcile/export artifact generation. Done via
+  `.github/workflows/weekly-artifacts.yml`, which defaults scheduled and manual
+  runs to dry-run LLM mode and uploads review artifacts only.
 - Reuse existing artifacts when source checksum and schema/model/prompt/render
-  versions are unchanged.
-- Upload diagnostics and review artifacts without publishing directly.
+  versions are unchanged. Done as a planning contract in
+  `welfare-inspections weekly-plan`; the current workflow records the active
+  source identity and version contract before running stages, while deeper
+  cache reuse remains future optimization.
+- Upload diagnostics and review artifacts without publishing directly. Done for
+  JSON/JSONL diagnostics, manifests, LLM evaluation reports, reconciliation
+  sidecars, export diagnostics, and dry-run backfill summaries.
 - Upload LLM evaluation reports with extraction and reconciliation artifacts.
+  Done structurally through the existing `extract-llm` evaluator and workflow
+  upload paths.
 
 Acceptance criteria:
 
 - Workflow is credential-aware and fails clearly when required LLM credentials
-  are missing.
-- CI remains offline and deterministic.
-- Weekly jobs do not run historical backfills implicitly.
+  are missing. Done: production weekly plans require
+  `WELFARE_INSPECTIONS_LLM_PROVIDER` and `WELFARE_INSPECTIONS_LLM_MODEL` before
+  collection begins.
+- CI remains offline and deterministic. Done: normal CI is unchanged, and PR 9
+  tests use only synthetic/offline planning contracts.
+- Weekly jobs do not run historical backfills implicitly. Done: the weekly
+  workflow includes only a dry-run backfill summary over current reconciled
+  outputs and records that historical backfills require explicit invocation.
 - Data-repo publication remains blocked when required LLM evaluation, schema,
-  reconciliation, or privacy gates fail.
+  reconciliation, or privacy gates fail. Done by keeping the workflow
+  non-publishing and review-artifact-only.
 
 ## PR 10: Publish PR Flow Into Data Repo
 

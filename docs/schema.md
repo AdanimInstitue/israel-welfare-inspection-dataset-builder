@@ -241,6 +241,22 @@ all compared candidate IDs recorded, and material deterministic/LLM conflicts
 stay `needs_review`. LLM-only values are retained as candidates and require
 review before canonical acceptance.
 
+## `weekly_run_plan` and Review Artifacts
+
+PR 9 adds lightweight workflow planning sidecars rather than canonical dataset
+rows. `weekly_run_plan.json` records the planned CLI stages, command arguments,
+network expectations, output paths, upload paths, and the active identity and
+version contract for incremental reuse. `weekly_run_summary.json` records
+whether planning was successful or blocked by missing production LLM
+credentials. `weekly_artifact_manifest.json` records diagnostics and review
+artifacts expected from the run and explicitly excludes downloaded PDFs,
+rendered images, prompt payloads, raw provider responses, and publication
+outputs.
+
+These sidecars are workflow contracts only. They are ignored local artifacts,
+not exported canonical data, and they do not change the `reports`,
+`source_documents`, `extraction_candidates`, or reconciliation schemas.
+
 ## `inspection_findings`
 
 Tracks individual findings, standards, recommendations, or section-level
