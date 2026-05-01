@@ -100,6 +100,129 @@ def test_publish_plan_production_fails_closed_without_token(
     ).exists()
 
 
+@pytest.mark.parametrize(
+    ("relative_path", "summary_name"),
+    [
+        ("exports/export_diagnostics.json", "export"),
+        ("reconciliation_diagnostics.json", "reconciliation"),
+        ("llm_eval_report.json", "llm_evaluation"),
+        ("backfill_diagnostics.json", "backfill"),
+    ],
+)
+def test_publish_plan_blocks_malformed_required_diagnostics(
+    tmp_path: Path,
+    relative_path: str,
+    summary_name: str,
+) -> None:
+    reviewed_dir = _write_reviewed_artifacts(tmp_path)
+    (reviewed_dir / relative_path).write_text("{bad json", encoding="utf-8")
+
+    plan = create_publication_plan(
+        reviewed_artifact_dir=reviewed_dir,
+        output_dir=tmp_path / "outputs" / "publication",
+        release_id="2026-05-01",
+        approved_for_publication=True,
+    )
+
+    assert plan.status == "blocked"
+    assert plan.summaries[summary_name]["error"]
+    assert any(
+        f"could not be parsed: {summary_name}" in blocker
+        for blocker in plan.blockers
+    )
+
+
+@pytest.mark.parametrize(
+    ("relative_path", "summary_name"),
+    [
+        ("exports/reports.jsonl", "reports_jsonl"),
+        ("source_manifest.jsonl", "source_manifest"),
+    ],
+)
+def test_publish_plan_blocks_invalid_required_jsonl(
+    tmp_path: Path,
+    relative_path: str,
+    summary_name: str,
+) -> None:
+    reviewed_dir = _write_reviewed_artifacts(tmp_path)
+    (reviewed_dir / relative_path).write_text("not-json\n", encoding="utf-8")
+
+    plan = create_publication_plan(
+        reviewed_artifact_dir=reviewed_dir,
+        output_dir=tmp_path / "outputs" / "publication",
+        release_id="2026-05-01",
+        approved_for_publication=True,
+    )
+
+    assert plan.status == "blocked"
+    assert plan.summaries[summary_name]["error_count"] == 1
+    assert any(
+        f"JSONL artifact is invalid: {summary_name}" in blocker
+        for blocker in plan.blockers
+    )
+
+
+def test_publish_plan_blocks_jsonl_missing_required_identity(
+    tmp_path: Path,
+) -> None:
+    reviewed_dir = _write_reviewed_artifacts(tmp_path)
+    (reviewed_dir / "source_manifest.jsonl").write_text(
+        json.dumps({"source_document_id": "source-doc-1"}) + "\n",
+        encoding="utf-8",
+    )
+
+    plan = create_publication_plan(
+        reviewed_artifact_dir=reviewed_dir,
+        output_dir=tmp_path / "outputs" / "publication",
+        release_id="2026-05-01",
+        approved_for_publication=True,
+    )
+
+    assert plan.status == "blocked"
+    assert plan.summaries["source_manifest"]["error_count"] == 1
+    assert "govil_item_url" in plan.summaries["source_manifest"]["errors"][0]
+
+
+def test_publish_plan_blocks_incomplete_llm_evaluation_report(
+    tmp_path: Path,
+) -> None:
+    reviewed_dir = _write_reviewed_artifacts(tmp_path)
+    _write_json(reviewed_dir / "llm_eval_report.json", {"model_name": "gpt-test"})
+
+    plan = create_publication_plan(
+        reviewed_artifact_dir=reviewed_dir,
+        output_dir=tmp_path / "outputs" / "publication",
+        release_id="2026-05-01",
+        approved_for_publication=True,
+    )
+
+    assert plan.status == "blocked"
+    assert any(
+        "llm_evaluation" in blocker and "missing required summary fields" in blocker
+        for blocker in plan.blockers
+    )
+
+
+def test_publish_plan_production_fails_closed_for_invalid_jsonl(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GITHUB_TOKEN", "test-token")
+    reviewed_dir = _write_reviewed_artifacts(tmp_path)
+    (reviewed_dir / "exports" / "reports.jsonl").write_text(
+        "not-json\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(PublicationGateError, match="JSONL artifact is invalid"):
+        create_publication_plan(
+            reviewed_artifact_dir=reviewed_dir,
+            output_dir=tmp_path / "outputs" / "publication",
+            mode="production",
+            approved_for_publication=True,
+        )
+
+
 def test_publish_plan_rejects_builder_repo_outputs_and_worktree() -> None:
     with pytest.raises(ValueError, match="outputs"):
         create_publication_plan(
@@ -172,7 +295,14 @@ def _write_reviewed_artifacts(
     export_dir = reviewed_dir / "exports"
     export_dir.mkdir(parents=True)
     (export_dir / "reports.jsonl").write_text(
-        json.dumps({"report_id": "report-1", "source_document_id": "source-doc-1"})
+        json.dumps(
+            {
+                "report_id": "report-1",
+                "source_document_id": "source-doc-1",
+                "govil_item_url": "https://www.gov.il/item/1",
+                "pdf_url": "https://www.gov.il/report.pdf",
+            }
+        )
         + "\n",
         encoding="utf-8",
     )
@@ -189,7 +319,15 @@ def _write_reviewed_artifacts(
         },
     )
     (reviewed_dir / "source_manifest.jsonl").write_text(
-        json.dumps({"source_document_id": "source-doc-1"}) + "\n",
+        json.dumps(
+            {
+                "source_document_id": "source-doc-1",
+                "govil_item_url": "https://www.gov.il/item/1",
+                "pdf_url": "https://www.gov.il/report.pdf",
+                "collector_version": "test-version",
+            }
+        )
+        + "\n",
         encoding="utf-8",
     )
     _write_json(
@@ -208,6 +346,8 @@ def _write_reviewed_artifacts(
             "prompt_version": "prompt-v1",
             "model_name": "gpt-test",
             "model_version": "2026-04-01",
+            "expected_field_count": 5,
+            "observed_field_count": 5,
             "covered_field_count": 5,
             "correct_field_count": 5,
             "missing_field_count": 0,

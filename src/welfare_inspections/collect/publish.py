@@ -21,6 +21,47 @@ SCHEMA_VERSION = "publication-plan-v1"
 DEFAULT_DATA_REPO = "AdanimInstitue/israel-welfare-inspection-dataset"
 DEFAULT_DATA_REPO_MAIN = "main"
 DEFAULT_PUBLICATION_BRANCH_PREFIX = "codex/data-publication-"
+JSONL_REQUIRED_FIELDS = {
+    "reports_jsonl": (
+        "report_id",
+        "source_document_id",
+        "govil_item_url",
+        "pdf_url",
+    ),
+    "source_manifest": (
+        "source_document_id",
+        "govil_item_url",
+        "pdf_url",
+        "collector_version",
+    ),
+}
+SUMMARY_REQUIRED_FIELDS = {
+    "export": (
+        "exported_records",
+        "validation_failed_records",
+        "duplicate_id_records",
+    ),
+    "reconciliation": (
+        "accepted_decisions",
+        "needs_review_decisions",
+        "rejected_decisions",
+    ),
+    "backfill": (
+        "unresolved_count",
+        "rejected_count",
+    ),
+    "llm_evaluation": (
+        "schema_version",
+        "prompt_id",
+        "prompt_version",
+        "model_name",
+        "covered_field_count",
+        "correct_field_count",
+        "missing_field_count",
+        "incorrect_field_count",
+        "regression_count",
+    ),
+}
 
 
 class PublicationGateError(RuntimeError):
@@ -369,6 +410,7 @@ def _load_summaries(inputs: list[PublicationInput]) -> dict[str, Any]:
     summaries: dict[str, Any] = {}
     for publication_input in inputs:
         path = Path(publication_input.path)
+        summary_key = _summary_key(publication_input.name)
         publication_input.present = path.exists()
         forbidden_reason = _forbidden_input_reason(path)
         if forbidden_reason:
@@ -376,14 +418,17 @@ def _load_summaries(inputs: list[PublicationInput]) -> dict[str, Any]:
         if not path.exists() or path.suffix.lower() not in {".json", ".jsonl"}:
             continue
         if path.suffix.lower() == ".jsonl":
-            summaries[publication_input.name] = {"record_count": _jsonl_count(path)}
+            summaries[summary_key] = _load_jsonl_summary(
+                path,
+                required_fields=JSONL_REQUIRED_FIELDS.get(publication_input.name, ()),
+            )
             continue
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            summaries[publication_input.name] = {"error": str(exc)}
+            summaries[summary_key] = {"error": str(exc)}
             continue
-        summaries[_summary_key(publication_input.name)] = _compact_summary(payload)
+        summaries[summary_key] = _compact_summary(payload)
     return summaries
 
 
@@ -411,6 +456,27 @@ def _publication_blockers(
         blockers.append("Human publication approval flag was not provided")
     if mode == "production" and not _github_token_present():
         blockers.append("GitHub token is required for production publication planning")
+
+    for summary_key, summary in sorted(summaries.items()):
+        if summary.get("error"):
+            blockers.append(f"Reviewed artifact could not be parsed: {summary_key}")
+        if summary.get("error_count", 0):
+            blockers.append(f"Reviewed JSONL artifact is invalid: {summary_key}")
+        if summary.get("record_count") == 0:
+            blockers.append(f"Reviewed JSONL artifact is empty: {summary_key}")
+
+    for summary_key, required_fields in SUMMARY_REQUIRED_FIELDS.items():
+        summary = summaries.get(summary_key, {})
+        missing_fields = [
+            field
+            for field in required_fields
+            if field not in summary and "error" not in summary
+        ]
+        if missing_fields:
+            blockers.append(
+                f"Reviewed artifact missing required summary fields: "
+                f"{summary_key} ({', '.join(missing_fields)})"
+            )
 
     export = summaries.get("export", {})
     if export.get("validation_failed_records", 0) or export.get(
@@ -677,10 +743,48 @@ def _summary_key(name: str) -> str:
     }.get(name, name)
 
 
-def _jsonl_count(path: Path) -> int:
-    return sum(
-        1 for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
-    )
+def _load_jsonl_summary(
+    path: Path,
+    *,
+    required_fields: tuple[str, ...],
+) -> dict[str, Any]:
+    errors: list[str] = []
+    record_count = 0
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        return {"record_count": 0, "error_count": 1, "errors": [str(exc)]}
+
+    for line_number, line in enumerate(lines, 1):
+        if not line.strip():
+            continue
+        record_count += 1
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError as exc:
+            errors.append(f"{path}:{line_number}: invalid JSON: {exc}")
+            continue
+        if not isinstance(payload, dict):
+            errors.append(f"{path}:{line_number}: expected JSON object")
+            continue
+        missing_fields = [
+            field
+            for field in required_fields
+            if field not in payload
+            or payload[field] is None
+            or payload[field] == ""
+        ]
+        if missing_fields:
+            errors.append(
+                f"{path}:{line_number}: missing required fields: "
+                f"{', '.join(missing_fields)}"
+            )
+
+    return {
+        "record_count": record_count,
+        "error_count": len(errors),
+        "errors": errors[:10],
+    }
 
 
 def _github_token_present() -> bool:
