@@ -54,6 +54,13 @@ def test_weekly_plan_builds_safe_dry_run_commands(tmp_path: Path) -> None:
     assert reconcile_command.upload_artifacts == [
         str(output_dir / "reconciliation_diagnostics.json")
     ]
+    discover_command = next(
+        command for command in plan.commands if command.stage == "discover"
+    )
+    assert discover_command.upload_artifacts == [
+        str(output_dir / "source_manifest.jsonl"),
+        str(output_dir / "discovery_diagnostics.json"),
+    ]
     assert "--max-pages" in plan.commands[0].command
     assert "2" in plan.commands[0].command
 
@@ -183,3 +190,9 @@ def test_cli_main_weekly_plan_production_mode_returns_error() -> None:
     from welfare_inspections.cli import main
 
     assert main(["weekly-plan", "--mode", "production"]) == 2
+
+
+def test_cli_main_weekly_plan_unknown_mode_returns_bad_parameter() -> None:
+    from welfare_inspections.cli import main
+
+    assert main(["weekly-plan", "--mode", "mock"]) == 2

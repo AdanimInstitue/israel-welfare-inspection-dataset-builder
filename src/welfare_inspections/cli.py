@@ -569,7 +569,10 @@ def weekly_plan(
         Path | None,
         typer.Option(
             "--artifact-dir",
-            help="Ignored local directory reserved for uploaded review artifacts.",
+            help=(
+                "Optional path recorded in the weekly plan for external review "
+                "artifact handling; this command writes sidecars to --output-dir."
+            ),
         ),
     ] = None,
     mode: Annotated[
@@ -608,6 +611,8 @@ def weekly_plan(
     except UnsupportedWeeklyProductionMode as exc:
         console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(code=2) from exc
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc), param_hint="--mode") from exc
     console.print(
         f"Weekly plan mode={plan.mode}; commands={len(plan.commands)}; "
         f"summary={plan.summary_path}"

@@ -11,6 +11,8 @@ from welfare_inspections.collect.local_outputs import validate_local_output_path
 from welfare_inspections.collect.models import utc_now
 
 SCHEMA_VERSION = "weekly-run-plan-v1"
+
+
 class UnsupportedWeeklyProductionMode(RuntimeError):
     """Raised when production weekly execution is requested before it exists."""
 
@@ -247,7 +249,10 @@ def _weekly_commands(
                 str(paths["source_manifest"]),
                 str(paths["discovery_diagnostics"]),
             ],
-            upload_artifacts=[str(paths["discovery_diagnostics"])],
+            upload_artifacts=[
+                str(paths["source_manifest"]),
+                str(paths["discovery_diagnostics"]),
+            ],
             network_required=True,
             notes=["Conservative source probe starting from skip=0."],
         ),
