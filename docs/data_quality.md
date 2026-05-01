@@ -39,6 +39,12 @@ provenance, include malformed date values, lack field evidence, or omit
 required text/image input identity are preserved as extraction diagnostics
 instead of being emitted as valid candidate rows.
 
+PR 8 validates reconciliation decisions, reconciled metadata sidecars, and
+backfill diagnostics with Pydantic contracts and committed JSON Schemas.
+Malformed LLM candidate provenance, duplicate candidate IDs, duplicate report or
+decision IDs, and material deterministic/LLM conflicts are diagnostics rather
+than silent overwrites.
+
 ## Row-Level Failure Handling
 
 The pipeline should prefer row-level warnings over full pipeline failure when a
@@ -117,6 +123,10 @@ diagnostics summary. It should not publish finding-level rows, downloaded PDFs,
 or unreviewed large artifacts. LLM-derived fields may be included only when
 they carry source evidence, model/prompt provenance, and reconciliation status.
 
+The PR 8 reconciler makes unresolved reconciliation explicit. Any report with a
+`needs_review` decision should block publication until reviewed or resolved by
+future deterministic rules or explicit agreement thresholds.
+
 ## Backfill Quality Gate
 
 Backfills are expected when models, prompts, schema, rendering, parsing, or
@@ -130,3 +140,8 @@ reconciliation rules improve. A backfill is publishable only when it emits:
 - counts of changed, unchanged, unresolved, and rejected fields
 - the relevant LLM evaluation report for the new model/prompt/render stack
 - a data-repo PR summary suitable for human review
+
+PR 8 provides the first dry-run backfill diagnostics contract for these fields.
+It records before values as null because no published canonical input is read
+yet; later PRs that compare against data-repo outputs must populate real prior
+canonical values and still avoid silent overwrites.

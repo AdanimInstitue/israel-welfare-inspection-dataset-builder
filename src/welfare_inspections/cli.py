@@ -23,6 +23,10 @@ from welfare_inspections.collect.pdf_text import extract_embedded_text_from_mani
 from welfare_inspections.collect.portal_discovery import (
     discover_source_documents,
 )
+from welfare_inspections.collect.reconcile import (
+    reconcile_report_metadata,
+    run_backfill_dry_run,
+)
 from welfare_inspections.collect.settings import (
     DiscoverySettings,
     DownloadSettings,
@@ -443,6 +447,107 @@ def export(
         f"exported={run_diagnostics.exported_records}; "
         f"validation_failed={run_diagnostics.validation_failed_records}; "
         f"duplicate_ids={run_diagnostics.duplicate_id_records}"
+    )
+
+
+@app.command("reconcile")
+def reconcile(
+    metadata: Annotated[
+        Path,
+        typer.Option(
+            "--metadata",
+            help="Path to PR 5 report metadata JSONL.",
+        ),
+    ] = Path("outputs/report_metadata.jsonl"),
+    metadata_diagnostics: Annotated[
+        Path,
+        typer.Option(
+            "--metadata-diagnostics",
+            help="Path to PR 5 metadata parse diagnostics JSON.",
+        ),
+    ] = Path("outputs/metadata_parse_diagnostics.json"),
+    llm_candidates: Annotated[
+        Path | None,
+        typer.Option(
+            "--llm-candidates",
+            help="Optional PR 7 LLM metadata candidate JSONL manifest.",
+        ),
+    ] = Path("outputs/llm_metadata_candidates.jsonl"),
+    output: Annotated[
+        Path,
+        typer.Option(
+            "--output",
+            help="Path for ignored reconciled report metadata JSONL.",
+        ),
+    ] = Path("outputs/reconciled_report_metadata.jsonl"),
+    diagnostics: Annotated[
+        Path,
+        typer.Option(
+            "--diagnostics",
+            help="Path for reconciliation diagnostics JSON.",
+        ),
+    ] = Path("outputs/reconciliation_diagnostics.json"),
+) -> None:
+    """Manually reconcile deterministic and LLM report metadata candidates."""
+    records, run_diagnostics = reconcile_report_metadata(
+        metadata_path=metadata,
+        metadata_diagnostics_path=metadata_diagnostics,
+        llm_candidates_path=llm_candidates,
+        output_path=output,
+        diagnostics_path=diagnostics,
+    )
+    console.print(
+        f"Processed {run_diagnostics.total_records} metadata records; "
+        f"reconciled={len(records)}; "
+        f"accepted={run_diagnostics.accepted_decisions}; "
+        f"needs_review={run_diagnostics.needs_review_decisions}"
+    )
+
+
+@app.command("backfill")
+def backfill(
+    reconciled_metadata: Annotated[
+        Path,
+        typer.Option(
+            "--reconciled-metadata",
+            help="Path to reconciled report metadata JSONL.",
+        ),
+    ] = Path("outputs/reconciled_report_metadata.jsonl"),
+    output: Annotated[
+        Path,
+        typer.Option(
+            "--output",
+            help="Path for ignored backfill diagnostics JSON.",
+        ),
+    ] = Path("outputs/backfill_diagnostics.json"),
+    evaluation_report: Annotated[
+        Path | None,
+        typer.Option(
+            "--evaluation-report",
+            help="Optional PR 7 LLM evaluation report JSON reference.",
+        ),
+    ] = Path("outputs/llm_eval_report.json"),
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run/--no-dry-run",
+            help="Backfill is currently diagnostics-only and must remain dry-run.",
+        ),
+    ] = True,
+) -> None:
+    """Create diagnostics-first dry-run backfill summaries."""
+    if not dry_run:
+        raise typer.BadParameter("Backfill only supports --dry-run in PR 8.")
+    diagnostics = run_backfill_dry_run(
+        reconciled_metadata_path=reconciled_metadata,
+        output_path=output,
+        evaluation_report_path=evaluation_report,
+    )
+    console.print(
+        f"Backfill dry-run fields={len(diagnostics.field_changes)}; "
+        f"changed={diagnostics.changed_count}; "
+        f"unresolved={diagnostics.unresolved_count}; "
+        f"rejected={diagnostics.rejected_count}"
     )
 
 

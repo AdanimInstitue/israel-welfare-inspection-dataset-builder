@@ -318,6 +318,209 @@ class CanonicalReportRow(BaseModel):
     parse_diagnostics: list[dict[str, Any]] = Field(default_factory=list)
 
 
+class ExtractionCandidate(BaseModel):
+    """Normalized candidate value from deterministic, LLM, OCR, or canonical input."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    candidate_id: str = Field(min_length=1)
+    source_document_id: str = Field(min_length=1)
+    report_id: str | None = None
+    field_name: str = Field(min_length=1)
+    raw_value: str | None = None
+    normalized_value: str | date | int | float | None = None
+    page_number: int | None = Field(default=None, ge=1)
+    raw_excerpt: str | None = None
+    visual_locator: VisualLocator | None = None
+    extraction_method: str = Field(
+        pattern="^(deterministic|llm_text|llm_multimodal|ocr|existing_canonical)$"
+    )
+    extractor_version: str = Field(min_length=1)
+    model_name: str | None = None
+    model_version: str | None = None
+    prompt_id: str | None = None
+    prompt_version: str | None = None
+    prompt_input_sha256: str | None = Field(
+        default=None,
+        min_length=64,
+        max_length=64,
+    )
+    source_pdf_sha256: str | None = Field(default=None, min_length=64, max_length=64)
+    text_input_sha256: str | None = Field(default=None, min_length=64, max_length=64)
+    rendered_artifact_ids: list[str] = Field(default_factory=list)
+    rendered_artifact_sha256s: list[str] = Field(default_factory=list)
+    renderer_version: str | None = None
+    preprocessor_version: str | None = None
+    input_artifact_refs: list[str] = Field(default_factory=list)
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    warnings: list[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=utc_now)
+
+    @model_validator(mode="after")
+    def validate_candidate_provenance(self) -> ExtractionCandidate:
+        if not self.raw_excerpt and self.visual_locator is None:
+            self.warnings.append("candidate_has_no_field_evidence")
+        if self.field_name.endswith("_date") and isinstance(
+            self.normalized_value,
+            str,
+        ):
+            try:
+                date.fromisoformat(self.normalized_value)
+            except ValueError as exc:
+                msg = (
+                    f"{self.field_name} normalized_value must be an ISO date "
+                    "when provided as a string."
+                )
+                raise ValueError(msg) from exc
+        if self.extraction_method.startswith("llm_"):
+            missing: list[str] = []
+            if not self.source_pdf_sha256:
+                missing.append("source_pdf_sha256")
+            if not self.prompt_input_sha256:
+                missing.append("prompt_input_sha256")
+            if not self.prompt_id:
+                missing.append("prompt_id")
+            if not self.prompt_version:
+                missing.append("prompt_version")
+            if missing:
+                msg = "LLM candidate missing provenance: " + ", ".join(missing)
+                raise ValueError(msg)
+        return self
+
+
+class ReconciliationDecision(BaseModel):
+    """Field-level decision describing how candidates became canonical values."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    decision_id: str = Field(min_length=1)
+    report_id: str = Field(min_length=1)
+    source_document_id: str = Field(min_length=1)
+    field_name: str = Field(min_length=1)
+    accepted_candidate_id: str | None = None
+    candidate_ids: list[str] = Field(default_factory=list)
+    decision_status: str = Field(
+        pattern="^(accepted|unresolved|conflict|rejected|needs_review)$"
+    )
+    decision_method: str = Field(min_length=1)
+    reason: str | None = None
+    warnings: list[str] = Field(default_factory=list)
+    decided_at: datetime = Field(default_factory=utc_now)
+    schema_version: str = Field(min_length=1)
+    reconciler_version: str = Field(min_length=1)
+
+
+class ReconciledReportMetadata(BaseModel):
+    """Report metadata plus conservative reconciliation decisions."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    report_id: str = Field(min_length=1)
+    source_document_id: str = Field(min_length=1)
+    base_metadata: ReportMetadataRecord
+    reconciled_fields: dict[str, str | date | int | float | None] = Field(
+        default_factory=dict
+    )
+    raw_fields: dict[str, str | None] = Field(default_factory=dict)
+    accepted_extraction_methods: dict[str, list[str]] = Field(default_factory=dict)
+    llm_candidate_ids: dict[str, list[str]] = Field(default_factory=dict)
+    reconciliation_status: str = Field(min_length=1)
+    decisions: list[ReconciliationDecision] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    schema_version: str = Field(min_length=1)
+    reconciler_version: str = Field(min_length=1)
+    reconciled_at: datetime = Field(default_factory=utc_now)
+
+
+class ReconciliationRecordDiagnostic(BaseModel):
+    """Per-record diagnostics for reconciliation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    line_number: int | None = None
+    report_id: str | None = None
+    source_document_id: str | None = None
+    status: str
+    decision_ids: list[str] = Field(default_factory=list)
+    accepted_count: int = 0
+    needs_review_count: int = 0
+    rejected_count: int = 0
+    warnings: list[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+    checked_at: datetime = Field(default_factory=utc_now)
+
+
+class ReconciliationRunDiagnostics(BaseModel):
+    """Sidecar diagnostics for one manual reconciliation run."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    started_at: datetime = Field(default_factory=utc_now)
+    finished_at: datetime | None = None
+    metadata_path: str
+    metadata_diagnostics_path: str
+    llm_candidates_path: str | None = None
+    output_path: str
+    diagnostics_path: str
+    schema_version: str
+    reconciler_version: str
+    total_records: int = 0
+    reconciled_records: int = 0
+    validation_failed_records: int = 0
+    duplicate_candidate_id_records: int = 0
+    duplicate_decision_id_records: int = 0
+    accepted_decisions: int = 0
+    needs_review_decisions: int = 0
+    rejected_decisions: int = 0
+    record_diagnostics: list[ReconciliationRecordDiagnostic] = Field(
+        default_factory=list
+    )
+    notes: list[str] = Field(default_factory=list)
+    extra: dict[str, Any] = Field(default_factory=dict)
+
+
+class BackfillFieldChange(BaseModel):
+    """Before/after view of one field considered by backfill."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    report_id: str = Field(min_length=1)
+    source_document_id: str = Field(min_length=1)
+    field_name: str = Field(min_length=1)
+    before_value: str | date | int | float | None = None
+    after_value: str | date | int | float | None = None
+    status: str = Field(pattern="^(changed|unchanged|unresolved|rejected)$")
+    accepted_candidate_id: str | None = None
+    candidate_ids: list[str] = Field(default_factory=list)
+    decision_id: str | None = None
+
+
+class BackfillRunDiagnostics(BaseModel):
+    """Dry-run-friendly diagnostics for versioned historical backfills."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    started_at: datetime = Field(default_factory=utc_now)
+    finished_at: datetime | None = None
+    mode: str = "dry-run"
+    reconciled_metadata_path: str
+    output_path: str
+    evaluation_report_path: str | None = None
+    schema_version: str
+    reconciler_version: str
+    input_hashes: dict[str, str] = Field(default_factory=dict)
+    model_versions: dict[str, str | None] = Field(default_factory=dict)
+    prompt_versions: dict[str, str | None] = Field(default_factory=dict)
+    render_versions: dict[str, str | None] = Field(default_factory=dict)
+    changed_count: int = 0
+    unchanged_count: int = 0
+    unresolved_count: int = 0
+    rejected_count: int = 0
+    field_changes: list[BackfillFieldChange] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+    extra: dict[str, Any] = Field(default_factory=dict)
+
+
 class ExportRecordDiagnostic(BaseModel):
     """Per-input-row diagnostics for local schema validation and export."""
 
@@ -648,3 +851,6 @@ class LLMEvaluationReport(BaseModel):
     regression_count: int = 0
     field_results: list[EvaluationFieldResult] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
+
+
+ExtractionCandidate.model_rebuild()

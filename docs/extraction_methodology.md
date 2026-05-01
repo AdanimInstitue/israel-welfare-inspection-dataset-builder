@@ -115,6 +115,16 @@ status. The merge LLM proposes decisions; schema validation and provenance
 checks enforce them. A merge LLM is not sufficient authority to auto-accept a
 material conflict by itself.
 
+PR 8 implements the first offline report-level reconciler. It reads only local
+PR 5 metadata artifacts and PR 7 LLM candidate manifests, converts both to a
+common candidate contract, and writes ignored reconciled metadata plus
+diagnostics. Deterministic-only fields are accepted. Deterministic and valid LLM
+candidates that agree are accepted while preserving every compared candidate ID.
+Disagreements between deterministic and LLM candidates are material conflicts
+and remain `needs_review`; the reconciler does not silently replace a
+deterministic value with an LLM value. LLM-only fields remain reviewable
+candidates rather than automatic canonical values.
+
 ## LLM Evaluation Gate
 
 LLM extraction quality must be measured separately from mocked provider tests.
@@ -216,3 +226,9 @@ change:
 Backfills must be resumable, idempotent, and reviewable. They should emit
 before/after diffs for canonical fields and should publish only through a
 data-repo PR.
+
+The PR 8 `backfill` command is contract/plumbing only. It is dry-run by default
+and does not collect history, call live providers, publish data, or overwrite
+canonical outputs. It records input hashes, schema and reconciler versions,
+optional evaluation report references, and changed/unresolved/rejected counters
+so later historical backfills can be audited before any data-repo PR.

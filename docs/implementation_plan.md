@@ -191,23 +191,37 @@ Tasks:
 
 - Add reconciliation contracts for deterministic candidates, text-LLM
   candidates, multimodal-LLM candidates, OCR candidates if present, and
-  existing canonical values.
-- Add `welfare-inspections reconcile`.
+  existing canonical values. Done for deterministic and PR 7 LLM candidates in
+  Pydantic plus JSON Schema sidecar contracts.
+- Add `welfare-inspections reconcile`. Done as a manual local command that
+  reads PR 5 metadata JSONL/diagnostics and optional PR 7 LLM candidate
+  manifests.
 - Add `welfare-inspections backfill` for versioned historical reprocessing.
+  Done as dry-run, diagnostics-first plumbing that summarizes reconciled
+  metadata without collecting, publishing, or overwriting canonical artifacts.
 - Preserve candidate conflicts and before/after canonical changes as
-  diagnostics.
+  diagnostics. Done for material deterministic/LLM conflicts and backfill field
+  change records.
 - Add filters such as `--source-document-id`, `--report-id`, `--since`,
-  `--limit`, and `--dry-run`.
+  `--limit`, and `--dry-run`. `--dry-run` is implemented for backfill; filters
+  remain future scope once larger historical manifests exist.
 
 Acceptance criteria:
 
 - Reconciliation never silently overwrites deterministic or previously
-  published values.
+  published values. Done: deterministic/LLM conflicts are `needs_review`, and
+  backfill writes diagnostics only in PR 8.
 - Material conflicts remain `needs_review` unless resolved by deterministic
   rules or explicit agreement thresholds; a reconciler LLM may propose a
   decision but must not be the only authority for auto-accepting a conflict.
+  Done for deterministic-only acceptance and deterministic/LLM agreement.
 - Backfills are idempotent, resumable, and produce reviewable change summaries.
+  Done as a resumable dry-run diagnostics contract with input hashes and
+  changed/unresolved/rejected counters.
 - Canonical exports identify accepted extraction methods and candidate IDs.
+  Reconciled metadata sidecars now identify accepted extraction methods and LLM
+  candidate IDs; PR 6 CSV/JSONL exports remain unchanged until publication
+  export behavior is explicitly expanded.
 
 ## PR 9: Weekly Incremental Workflow and Artifact Upload
 
