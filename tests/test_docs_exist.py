@@ -27,6 +27,8 @@ REQUIRED_SCHEMAS = [
     "schemas/rendered_page_artifact.schema.json",
     "schemas/llm_extraction_candidate.schema.json",
     "schemas/llm_evaluation_report.schema.json",
+    "schemas/finding_candidate.schema.json",
+    "schemas/finding_extraction_diagnostics.schema.json",
     "schemas/extraction_candidate.schema.json",
     "schemas/reconciliation_decision.schema.json",
     "schemas/reconciliation_diagnostics.schema.json",

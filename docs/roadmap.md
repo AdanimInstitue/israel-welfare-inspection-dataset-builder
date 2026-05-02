@@ -99,7 +99,16 @@ credentials are available. The planned data-repo branch targets
 pushes to `main`. Publication remains separate from the weekly artifact
 workflow.
 
-## PR 11+: Detailed Findings Extraction, OCR, Quality Dashboards
+## PR 11: Finding-Level Extraction Contracts
+
+Add the first narrow finding-level extraction slice: schema-bound candidate
+contracts, diagnostics, and offline review plumbing. The `extract-findings`
+command reads local manifests/diagnostics and optional mock responses, writes
+ignored sidecars, and keeps findings as candidates only. It does not publish
+finding rows, add canonical exports, call live providers, OCR PDFs, build
+dashboards, or change scheduled workflows.
+
+## PR 12+: Detailed Findings Extraction, OCR, Quality Dashboards
 
 Expand finding-level extraction, optional OCR candidate generation, quality
 reports, parse warning dashboards, broader fixture coverage, and model/prompt

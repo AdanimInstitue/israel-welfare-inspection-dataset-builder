@@ -52,6 +52,13 @@ excluded artifact classes. Production weekly mode is blocked until live LLM
 provider calls and real incremental reuse are implemented. Tests cover this
 blocking behavior without real secrets or live provider calls.
 
+PR 11 validates finding-level review artifacts with Pydantic contracts and
+committed JSON Schemas. Valid finding candidates require source identity,
+finding text, evidence, confidence, validation status, and LLM provenance when
+the extraction method is text or multimodal LLM. Malformed mock responses,
+missing required evidence, and missing required input hashes are diagnostics
+instead of canonical rows.
+
 ## Row-Level Failure Handling
 
 The pipeline should prefer row-level warnings over full pipeline failure when a
@@ -155,6 +162,11 @@ exclude downloaded PDFs, rendered page images, prompt payloads, raw LLM
 responses, candidate payload manifests, unreviewed large artifacts,
 finding-level rows, suspected sensitive personal data, and generated
 publication outputs in this builder repository.
+
+PR 11 keeps finding candidates on the review side of that boundary. A passing
+`extract-findings` dry-run or mock run is not publication approval; OCR,
+dashboarding, live provider extraction, canonical finding exports, and finding
+row publication remain later work.
 
 ## Backfill Quality Gate
 

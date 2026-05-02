@@ -66,6 +66,13 @@ planned data-repo file set. Production planning fails closed unless reviewed
 inputs, explicit human approval, clear quality gates, and GitHub credentials
 are present.
 
+PR 11 finding extraction remains review-only. `extract-findings` may create
+local finding candidate and diagnostics sidecars from dry-run or mock fixtures,
+but those sidecars are not publication inputs. Finding rows, especially
+free-text findings and recommendations, require later privacy review,
+canonical schema work, quality gates, and explicit publication scope before
+they can enter the paired data repository.
+
 ## Data Repository Placeholders
 
 The paired data repository should eventually include `NOTICE.md`,

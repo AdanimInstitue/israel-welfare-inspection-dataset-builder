@@ -10,8 +10,9 @@ schema-bound LLM candidate plumbing, and offline evaluation reporting. PR 8 adds
 manual candidate reconciliation and diagnostics-first dry-run backfill
 plumbing. PR 9 adds weekly review-artifact planning and GitHub Actions
 plumbing. PR 10 adds gated publication PR planning for the paired data
-repository. These commands are inert by default and write ignored local outputs.
-CI remains offline and uses mocked or synthetic inputs only.
+repository. PR 11 adds offline finding-level candidate/review sidecars. These
+commands are inert by default and write ignored local outputs. CI remains
+offline and uses mocked or synthetic inputs only.
 
 Real PDF inspection showed that embedded-text parsing alone is not sufficient
 for useful publication. The production pipeline therefore needs required
@@ -31,6 +32,7 @@ Current manual commands:
 - `welfare-inspections parse-metadata`
 - `welfare-inspections render-pages`
 - `welfare-inspections extract-llm`
+- `welfare-inspections extract-findings`
 - `welfare-inspections reconcile`
 - `welfare-inspections backfill`
 - `welfare-inspections weekly-plan`
@@ -54,6 +56,8 @@ Expected behavior:
   extraction using a versioned render profile and records per-artifact hashes.
 - `extract-llm` runs required schema-bound LLM extraction and writes candidate
   manifests plus diagnostics.
+- `extract-findings` writes finding-level candidate and diagnostics sidecars
+  for offline review only.
 - `reconcile` merges deterministic, text-LLM, multimodal-LLM, OCR, and existing
   candidates into canonical rows while leaving unresolved material conflicts as
   `needs_review`.
@@ -232,6 +236,30 @@ The PR 8 `backfill` command is dry-run-only. It reads reconciled metadata,
 optionally references an LLM evaluation report, records input hashes and change
 counts, and writes `outputs/backfill_diagnostics.json`. It does not perform
 historical live collection, publication, or canonical overwrite.
+
+Current PR 11 finding extraction command:
+
+```bash
+welfare-inspections extract-findings \
+  --source-manifest outputs/download_manifest.jsonl \
+  --text-diagnostics outputs/text_extraction_diagnostics.json \
+  --render-manifest outputs/rendered_pages_manifest.jsonl \
+  --output outputs/finding_candidates.jsonl \
+  --diagnostics outputs/finding_extraction_diagnostics.json \
+  --mode dry-run
+```
+
+The command is manual and review-only. `--mode dry-run` validates plumbing and
+writes empty candidate output plus diagnostics. `--mode mock` validates local
+JSONL mock finding responses with no network or provider calls.
+`--mode production` fails closed because live finding providers are not
+supported yet. Candidate rows preserve provenance, source/page evidence,
+input hashes where available, prompt/model metadata where applicable,
+confidence, warnings, and validation status. Malformed payloads become
+diagnostics instead of emitted valid rows.
+
+PR 11 does not OCR PDFs, call live providers, publish finding rows, add finding
+rows to canonical exports, build dashboards, or change scheduled workflows.
 
 Current PR 9 weekly plan command:
 

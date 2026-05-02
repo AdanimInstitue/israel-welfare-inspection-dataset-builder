@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AdanimInstitue/israel-welfare-inspection-dataset-builder/schemas/finding_extraction_diagnostics.schema.json",
+  "title": "Finding Extraction Diagnostics",
+  "description": "Diagnostics sidecar for manual/offline finding-level extraction runs.",
+  "type": "object",
+  "required": [
+    "mode",
+    "source_manifest_path",
+    "output_path",
+    "diagnostics_path",
+    "prompt_id",
+    "prompt_version",
+    "total_records",
+    "candidate_records",
+    "failed_records",
+    "warning_records",
+    "record_diagnostics"
+  ],
+  "properties": {
+    "started_at": { "type": "string", "format": "date-time" },
+    "finished_at": { "type": ["string", "null"], "format": "date-time" },
+    "mode": { "type": "string", "enum": ["dry-run", "mock", "production"] },
+    "source_manifest_path": { "type": "string", "minLength": 1 },
+    "text_diagnostics_path": { "type": ["string", "null"] },
+    "render_manifest_path": { "type": ["string", "null"] },
+    "output_path": { "type": "string", "minLength": 1 },
+    "diagnostics_path": { "type": "string", "minLength": 1 },
+    "prompt_id": { "type": "string", "minLength": 1 },
+    "prompt_version": { "type": "string", "minLength": 1 },
+    "model_name": { "type": ["string", "null"] },
+    "model_version": { "type": ["string", "null"] },
+    "total_records": { "type": "integer", "minimum": 0 },
+    "candidate_records": { "type": "integer", "minimum": 0 },
+    "failed_records": { "type": "integer", "minimum": 0 },
+    "warning_records": { "type": "integer", "minimum": 0 },
+    "record_diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source_document_id", "status"],
+        "properties": {
+          "source_document_id": { "type": "string", "minLength": 1 },
+          "status": { "type": "string", "minLength": 1 },
+          "candidate_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "warnings": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "errors": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "checked_at": { "type": "string", "format": "date-time" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "extra": { "type": "object" }
+  },
+  "additionalProperties": false
+}

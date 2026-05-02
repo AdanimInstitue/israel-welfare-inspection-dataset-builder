@@ -144,6 +144,15 @@ diagnostics and LLM metadata, and exclude downloaded PDFs, rendered page images,
 prompt payloads, raw LLM responses, finding-level rows, suspected sensitive
 personal data, and builder-repository generated outputs.
 
+PR 11 adds a narrow finding-level review layer. The `extract-findings` command
+can run in dry-run or mock mode over local manifests, text diagnostics, rendered
+page manifests, and mock finding responses. It writes ignored
+`finding_candidates.jsonl` and `finding_extraction_diagnostics.json` sidecars
+with source provenance, evidence, prompt/model metadata where applicable,
+immutable input hashes where available, confidence, warnings, and validation
+status. It does not feed findings into canonical exports, publication inputs,
+dashboards, scheduled workflows, OCR, or live provider calls.
+
 OCR remains optional infrastructure for future quality improvement, but it is
 not the main answer to the current PDF issue. When OCR is used, it should be
 treated as another candidate source and reconciled with the same provenance and

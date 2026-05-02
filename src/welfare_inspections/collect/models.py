@@ -823,6 +823,118 @@ class LLMExtractionRunDiagnostics(BaseModel):
     extra: dict[str, Any] = Field(default_factory=dict)
 
 
+class FindingExtractionCandidate(BaseModel):
+    """Review-only finding-level extraction candidate."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    candidate_id: str = Field(min_length=1)
+    source_document_id: str = Field(min_length=1)
+    report_id: str | None = None
+    finding_index: int | None = Field(default=None, ge=1)
+    finding_type: str | None = None
+    severity: str | None = None
+    finding_text_raw: str = Field(min_length=1)
+    finding_text_normalized: str | None = None
+    recommendation_raw: str | None = None
+    recommendation_normalized: str | None = None
+    legal_refs: list[str] = Field(default_factory=list)
+    extraction_method: str = Field(pattern="^(llm_text|llm_multimodal|ocr|mock)$")
+    extractor_version: str = Field(min_length=1)
+    source_pdf_sha256: str | None = Field(default=None, min_length=64, max_length=64)
+    text_input_sha256: str | None = Field(default=None, min_length=64, max_length=64)
+    rendered_artifact_ids: list[str] = Field(default_factory=list)
+    rendered_artifact_sha256s: list[str] = Field(default_factory=list)
+    prompt_id: str | None = None
+    prompt_version: str | None = None
+    prompt_input_sha256: str | None = Field(
+        default=None,
+        min_length=64,
+        max_length=64,
+    )
+    model_name: str | None = None
+    model_version: str | None = None
+    evidence: list[FieldEvidence] = Field(min_length=1)
+    confidence: float = Field(ge=0.0, le=1.0)
+    warnings: list[str] = Field(default_factory=list)
+    validation_status: str = Field(pattern="^(valid|invalid|needs_review)$")
+    validation_errors: list[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=utc_now)
+
+    @model_validator(mode="after")
+    def validate_finding_provenance(self) -> FindingExtractionCandidate:
+        if self.extraction_method in {"llm_text", "llm_multimodal"}:
+            missing: list[str] = []
+            if not self.source_pdf_sha256:
+                missing.append("source_pdf_sha256")
+            if not self.prompt_id:
+                missing.append("prompt_id")
+            if not self.prompt_version:
+                missing.append("prompt_version")
+            if not self.prompt_input_sha256:
+                missing.append("prompt_input_sha256")
+            if self.extraction_method == "llm_text" and not self.text_input_sha256:
+                missing.append("text_input_sha256")
+            if self.extraction_method == "llm_multimodal":
+                if not self.rendered_artifact_ids:
+                    missing.append("rendered_artifact_ids")
+                if not self.rendered_artifact_sha256s:
+                    missing.append("rendered_artifact_sha256s")
+                if (
+                    self.rendered_artifact_ids
+                    and self.rendered_artifact_sha256s
+                    and len(self.rendered_artifact_ids)
+                    != len(self.rendered_artifact_sha256s)
+                ):
+                    msg = "Rendered artifact ID and hash counts must match."
+                    raise ValueError(msg)
+            if missing:
+                msg = "Finding candidate missing provenance: " + ", ".join(missing)
+                raise ValueError(msg)
+        return self
+
+
+class FindingExtractionRecordDiagnostic(BaseModel):
+    """Per-document diagnostics for review-only finding extraction."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_document_id: str
+    status: str
+    candidate_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+    checked_at: datetime = Field(default_factory=utc_now)
+
+
+class FindingExtractionRunDiagnostics(BaseModel):
+    """Sidecar diagnostics for one manual finding extraction run."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    started_at: datetime = Field(default_factory=utc_now)
+    finished_at: datetime | None = None
+    mode: str
+    source_manifest_path: str
+    text_diagnostics_path: str | None = None
+    render_manifest_path: str | None = None
+    output_path: str
+    diagnostics_path: str
+    prompt_id: str
+    prompt_version: str
+    model_name: str | None = None
+    model_version: str | None = None
+    total_records: int = 0
+    candidate_records: int = 0
+    failed_records: int = 0
+    warning_records: int = 0
+    record_diagnostics: list[FindingExtractionRecordDiagnostic] = Field(
+        default_factory=list
+    )
+    notes: list[str] = Field(default_factory=list)
+    extra: dict[str, Any] = Field(default_factory=dict)
+
+
 class EvaluationExpectedField(BaseModel):
     """Reviewed expected value for offline LLM candidate evaluation."""
 
