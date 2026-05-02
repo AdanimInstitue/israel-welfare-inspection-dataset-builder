@@ -1,8 +1,9 @@
 # Schema
 
-The v1 canonical model separates source provenance, report-level metadata,
-finding-level extracted content, and parse diagnostics. Fields are classified as
-raw, normalized, or derived.
+The v1 model is layered. It starts with a source-observed report index from the
+Gov.il listing page, then adds source document/PDF identity, raw extracted
+text, processed canonical tables, finding-level content, diagnostics, and later
+analytics. Fields are classified as raw, normalized, or derived.
 
 Raw fields preserve source values as published. Normalized fields standardize
 values for analysis while keeping the raw source value. Derived fields are
@@ -15,12 +16,80 @@ LLM extraction, OCR, or reconciliation. Canonical rows should preserve the
 accepted value and enough candidate/provenance references to audit why it was
 accepted.
 
+## Dataset Layers
+
+The public data products should be planned as these layers:
+
+1. `reports_index`: source-observed listing-page facts, without PDF contents.
+2. `source_documents`: PDF URL, download/checksum identity, and source
+   document provenance.
+3. Raw text artifacts: extracted text and extraction diagnostics.
+4. Processed canonical tables: normalized/reconciled reports, facilities,
+   inspections, findings, and warnings.
+5. Advanced analytics outputs: derived indicators and whole-dataset insights.
+
+Earlier layers must not depend on later layers. In particular, `reports_index`
+does not require PDF download, text extraction, OCR, LLM extraction,
+reconciliation, or finding extraction.
+
 ## ID Strategy
 
 IDs should be deterministic where possible. Source document IDs should be stable
 across runs for the same Gov.il item or PDF URL. Report and finding IDs should
 derive from source document identity plus stable parsed context. Random IDs
 should be avoided for canonical rows.
+
+## `reports_index`
+
+The first public layer is a report index table containing facts visible on the
+Gov.il listing page. For v1, `reports_index.csv` must contain exactly these six
+source-observed Hebrew columns, in this order:
+
+| Field | Type | Class |
+| --- | --- | --- |
+| `שם מסגרת` | string/null | raw |
+| `סוג מסגרת` | string/null | raw |
+| `סמל מסגרת` | string/null | raw |
+| `מינהל` | string/null | raw |
+| `מחוז` | string/null | raw |
+| `תאריך ביצוע` | string/null | raw |
+
+Internal English aliases may use:
+
+| Hebrew field | Internal alias |
+| --- | --- |
+| `שם מסגרת` | `institution_name` |
+| `סוג מסגרת` | `institution_type` |
+| `סמל מסגרת` | `institution_symbol` |
+| `מינהל` | `administration` |
+| `מחוז` | `district` |
+| `תאריך ביצוע` | `survey_date` |
+
+Use `administration` as the English translation for `מינהל`; use `district`
+for `מחוז`. Do not use `county`.
+
+The implementation must write `reports_index.jsonl` with the same six
+source-observed values plus companion machine/provenance fields. Do not add
+these provenance fields to `reports_index.csv` in v1:
+
+| Field | Type | Class |
+| --- | --- | --- |
+| `report_index_id` | string | derived |
+| `source_record_id` | string | derived |
+| `govil_item_url` | string/null | raw |
+| `pdf_url` | string/null | raw |
+| `discovered_at` | datetime | derived |
+| `source_page_url` | string | raw |
+| `source_skip` | integer/null | raw |
+| `source_position` | integer/null | raw |
+| `collection_run_id` | string | derived |
+| `collector_version` | string | derived |
+
+`report_index_diagnostics.json` should hold run-level validation, coverage,
+pagination, source-path, and error diagnostics. The report index layer must not
+infer values that are not visible on the listing page, parse PDF contents,
+normalize facility names, extract findings, or treat a PDF-derived value as
+source-observed listing metadata.
 
 ## `source_documents`
 

@@ -4,9 +4,11 @@ This is an authorized public-data transparency project conducted by Adanim
 Institute, a semi-governmental public-policy research institute, in
 collaboration with the Israeli Ministry of Welfare and the Taub Institute.
 
-The builder converts publicly published Ministry welfare inspection reports from
-PDF documents into reproducible, auditable open dataset artifacts. The first PR
-only documents the design and adds a lightweight validation scaffold.
+The builder converts publicly visible Ministry welfare inspection report
+listings and their linked PDF reports into reproducible, auditable open dataset
+artifacts. The public data product is layered: the first layer is a report
+index from the Gov.il listing page, and later layers add PDFs, raw text,
+processed canonical tables, and advanced analytics.
 
 ## Builder/Data Repository Split
 
@@ -33,6 +35,8 @@ israel-welfare-inspection-dataset/
   datapackage.json
   data/
     current/
+      reports_index.csv
+      reports_index.jsonl
       reports.csv
       reports.jsonl
       facilities.csv
@@ -49,34 +53,65 @@ israel-welfare-inspection-dataset/
 
 Generated dataset artifacts must not be committed to the builder repository.
 
-## Intended ETL Stages
+## Layered Public Data Products
 
-1. Discover newly published PDF reports from the Gov.il portal.
-2. Download PDFs and record checksums.
-3. Extract embedded text and document metadata.
-4. Render PDF pages/images for multimodal extraction.
-5. Run LLM-based extraction for every report, using embedded text, rendered
-   pages, and source provenance as inputs.
+The architecture is organized around progressive dataset layers:
+
+1. **Report index layer**: a human- and machine-readable inventory of all
+   published reports visible on the Gov.il listing page. The public CSV keeps
+   exactly the six source-observed Hebrew columns `שם מסגרת`, `סוג מסגרת`,
+   `סמל מסגרת`, `מינהל`, `מחוז`, and `תאריך ביצוע`. The JSONL sidecar keeps
+   the same values plus machine/provenance fields.
+2. **Source document layer**: the linked PDF URL, download status, checksums,
+   HTTP diagnostics, and source/download manifests. Local ignored paths are
+   builder implementation details, not public dataset fields.
+3. **Raw text layer**: embedded text extraction, page text artifacts, raw text
+   diagnostics, and later OCR text if explicitly added.
+4. **Processed canonical layer**: normalized and reconciled report metadata,
+   findings, warnings, and schema-improved tables derived from source metadata,
+   text, rendered pages, LLM candidates, and deterministic parsers.
+5. **Advanced analytics layer**: derived indicators, aggregates, quality
+   dashboards, and whole-dataset insights built only on top of reviewed
+   canonical data.
+
+Each layer can have its own validation and publication gate. A later layer must
+not be required before an earlier layer is useful: the report index layer does
+not download PDFs, parse contents, run OCR, call LLM providers, infer missing
+values, or publish findings.
+
+## Intended Pipeline Stages
+
+1. Discover report cards from the Gov.il portal and emit the report index layer.
+2. Capture PDF links from the listing and, in the source document layer,
+   download PDFs and record checksums.
+3. Extract embedded text and document metadata for the raw text layer.
+4. Render PDF pages/images for multimodal extraction when content-derived
+   layers need visual evidence.
+5. Run LLM-based extraction for content-derived layers using embedded text,
+   rendered pages, and source provenance as inputs.
 6. Parse deterministic top-level report metadata and detailed findings where
    reliable rules exist.
-7. Reconcile deterministic and LLM-derived candidates into canonical rows.
+7. Reconcile deterministic and LLM-derived candidates into processed canonical
+   rows.
 8. Run LLM evaluation and quality gates against reviewed fixtures and active
    release thresholds.
 9. Normalize Hebrew text, dates, facility names, facility types, districts,
    administrations, visit types, and inspection fields.
-10. Validate canonical schemas.
-11. Export CSV, JSON, JSONL, and Parquet outputs.
+10. Validate each layer's schemas and tabular constraints.
+11. Export CSV, JSON, JSONL, and Parquet outputs where appropriate.
 12. Preserve raw provenance, model diagnostics, parse diagnostics, and quality
     warnings.
 13. Open a PR into the paired data repository for publication.
 
 ## Extraction Strategy
 
-The real Ministry PDF reports are not reliably parseable from embedded text
-alone. The Ministry is aware of the issue, but source PDF structure is not
-expected to change soon enough for the dataset roadmap. V1 therefore requires
-both deterministic extraction and LLM-based extraction as normal production
-inputs.
+The report index layer is source-observed from the Gov.il listing page and does
+not depend on PDF parsing. PDF-content-derived layers remain harder: the real
+Ministry PDF reports are not reliably parseable from embedded text alone. The
+Ministry is aware of the issue, but source PDF structure is not expected to
+change soon enough for the content extraction roadmap. Those layers therefore
+require both deterministic extraction and LLM-based extraction as normal
+production inputs.
 
 Deterministic layers remain important for page counts, checksums, embedded text,
 stable IDs, simple field extraction, and cheap regression signals. PyMuPDF is

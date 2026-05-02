@@ -1,5 +1,11 @@
 # Operations
 
+The operating model is layered. The first public layer is a report index built
+from Gov.il listing-page facts only. Later layers add PDF source documents, raw
+extracted text, processed canonical tables, and advanced analytics. Existing
+commands remain useful, but they now belong to downstream layers instead of
+being prerequisites for the first usable dataset.
+
 PR 2 adds a manual source discovery prototype. PR 3 adds a separate manual PDF
 download/checksum layer that reads the PR 2 source manifest. PR 4 adds a manual
 embedded-text extraction layer that reads the PR 3 download manifest. PR 5 adds
@@ -10,15 +16,17 @@ schema-bound LLM candidate plumbing, and offline evaluation reporting. PR 8 adds
 manual candidate reconciliation and diagnostics-first dry-run backfill
 plumbing. PR 9 adds weekly review-artifact planning and GitHub Actions
 plumbing. PR 10 adds gated publication PR planning for the paired data
-repository. PR 11 adds offline finding-level candidate/review sidecars. These
-commands are inert by default and write ignored local outputs. CI remains
-offline and uses mocked or synthetic inputs only.
+repository. PR 11 adds offline finding-level candidate/review sidecars. PR 12
+reframes these as layered dataset infrastructure. These commands are inert by
+default and write ignored local outputs. CI remains offline and uses mocked or
+synthetic inputs only.
 
 Real PDF inspection showed that embedded-text parsing alone is not sufficient
-for useful publication. The production pipeline therefore needs required
-LLM-based extraction, including multimodal extraction from rendered PDF pages,
-plus reconciliation before publication. Existing deterministic stages remain as
-cheap candidate generators and validation aids.
+for content-derived layers. Those layers need required LLM-based extraction,
+including multimodal extraction from rendered PDF pages, plus reconciliation
+before publication. The report index layer does not inspect report contents and
+therefore does not require PDF download, text extraction, OCR, LLM extraction,
+or reconciliation.
 
 ## Future CLI
 
@@ -41,12 +49,15 @@ Current manual commands:
 
 Planned future commands:
 
+- `welfare-inspections collect-report-index`
 - `welfare-inspections build`
 - `welfare-inspections publish`
 - `welfare-inspections run-all`
 
 Expected behavior:
 
+- `collect-report-index` will write the first-layer report index CSV/JSONL and
+  diagnostics from Gov.il listing-page facts only.
 - `discover` writes a source manifest JSONL.
 - `download` reads a manifest and downloads/checksums PDFs.
 - `parse` extracts embedded text and PDF diagnostics from downloaded PDFs.
@@ -68,7 +79,7 @@ Expected behavior:
 - `publish-plan` writes a gated publication plan, diagnostics, proposed
   data-repo PR body, and release notes without touching the paired data repo.
 - `export` validates parsed report metadata and emits local CSV/JSONL outputs.
-- `build` will later chain broader dataset outputs into a local output
+- `build` will later chain selected layered dataset outputs into a local output
   directory.
 - `publish` opens a PR into the data repository, not a direct push to main.
 - `run-all` chains the local non-publishing steps.
@@ -84,6 +95,31 @@ welfare-inspections discover \
 The command starts at the canonical `skip=0` URL, iterates conservatively, and
 stops on empty, repeated, blocked, or exhausted pages. It records HTTP and parser
 diagnostics, including structured endpoint requests. It does not download PDFs.
+
+Planned PR 13 report index command:
+
+```bash
+welfare-inspections collect-report-index \
+  --output-csv outputs/report_index/reports_index.csv \
+  --output-jsonl outputs/report_index/reports_index.jsonl \
+  --diagnostics outputs/report_index/report_index_diagnostics.json
+```
+
+The command should collect only Gov.il listing-page facts visible in the source
+cards. `reports_index.csv` must contain exactly the Hebrew source columns
+`שם מסגרת`, `סוג מסגרת`, `סמל מסגרת`, `מינהל`, `מחוז`, and `תאריך ביצוע`.
+`reports_index.jsonl` must contain those same values plus visible item/PDF
+links and provenance. Internal aliases may use `institution_name`,
+`institution_type`, `institution_symbol`, `administration`, `district`, and
+`survey_date`.
+
+The primary source path is the Gov.il structured DynamicCollector response when
+it contains all six visible card fields. If that response omits a required
+visible field or returns incomplete records, the command should fall back to
+browser-rendered public DOM collection for the run. Diagnostics must record the
+source path used and per-field coverage. The command must not download PDFs,
+parse PDF text, run OCR, call LLM providers, extract findings, normalize
+facility names, or infer values not visible on the listing page.
 
 Current PR 3 download command:
 
@@ -413,6 +449,7 @@ the live Gov.il portal.
 
 Future workflows should include:
 
+- report index collection and validation workflow/artifact upload
 - weekly build workflow for discovery/download/parse/render/LLM
   extraction/reconcile/build
 - artifact upload for inspection before publication
@@ -423,64 +460,37 @@ Future workflows should include:
 Scheduled and publishing workflows should be added only when they are safe,
 credential-aware, and cannot fail solely because live external access is absent.
 
-## Manual v0 Preview Publication Runbook
+## Manual v0 Report Index Publication Runbook
 
-The project may do a one-time manual `v0 preview` publication before weekly and
-publication automation, but only as a report-metadata-first preview. This
-runbook is a checkpointed plan; do not start live collection or data-repo
-publication until the plan has been reviewed.
+The project may do a one-time manual `v0 report index` publication before
+weekly and publication automation. This preview is a source inventory from the
+Gov.il listing page, not a parsed report-content dataset. This runbook is a
+checkpointed plan; do not start live collection or data-repo publication until
+the plan has been reviewed.
 
-Step 1: run the local pipeline manually against public Gov.il data.
+Step 1: run the report index layer manually against public Gov.il data.
 
 ```bash
-welfare-inspections discover \
-  --output outputs/source_manifest.jsonl \
-  --diagnostics outputs/discovery_diagnostics.json
-
-welfare-inspections download \
-  --source-manifest outputs/source_manifest.jsonl \
-  --output-manifest outputs/download_manifest.jsonl \
-  --diagnostics outputs/download_diagnostics.json \
-  --download-dir downloads/pdfs
-
-welfare-inspections parse \
-  --source-manifest outputs/download_manifest.jsonl \
-  --text-output-dir outputs/extracted_text \
-  --diagnostics outputs/text_extraction_diagnostics.json
-
-welfare-inspections parse-metadata \
-  --text-diagnostics outputs/text_extraction_diagnostics.json \
-  --output outputs/report_metadata.jsonl \
-  --diagnostics outputs/metadata_parse_diagnostics.json
-
-# Planned required LLM stages once implemented:
-# welfare-inspections render-pages ...
-# welfare-inspections extract-llm ...
-# welfare-inspections reconcile ...
-
-welfare-inspections export \
-  --metadata outputs/reconciled_report_metadata.jsonl \
-  --metadata-diagnostics outputs/reconciliation_diagnostics.json \
-  --output-dir outputs/exports
+welfare-inspections collect-report-index \
+  --output-csv outputs/report_index/reports_index.csv \
+  --output-jsonl outputs/report_index/reports_index.jsonl \
+  --diagnostics outputs/report_index/report_index_diagnostics.json
 ```
 
 Step 2: review generated local outputs and diagnostics.
 
-- Confirm `outputs/exports/reports.jsonl`, `outputs/exports/reports.csv`, and
-  `outputs/exports/export_diagnostics.json` exist.
-- Review discovery, download, text extraction, metadata parse, and export
-  diagnostics before publication. Once LLM stages are implemented, also review
-  render, LLM extraction, LLM evaluation, and reconciliation diagnostics.
+- Confirm `outputs/report_index/reports_index.csv`,
+  `outputs/report_index/reports_index.jsonl`, and
+  `outputs/report_index/report_index_diagnostics.json` exist.
+- Review report index diagnostics before publication.
 - Stop if required provenance is missing, row validation failures are
-  structural, extraction coverage is unexpectedly low, source access appears
-  blocked or incomplete, required LLM stages did not run, LLM evaluation
-  thresholds failed, reconciliation conflicts remain unresolved, or any privacy
-  risk is detected.
+  structural, source coverage is unexpectedly low, source access appears
+  blocked or incomplete, duplicate IDs exist, or any privacy risk is detected.
 
-Step 3: prepare a data-repo branch for a v0 report-metadata-only preview.
+Step 3: prepare a data-repo branch for a v0 report-index-only preview.
 
 - Use `AdanimInstitue/israel-welfare-inspection-dataset`.
-- Include only reviewed export artifacts, diagnostics summaries,
+- Include only reviewed report index artifacts, diagnostics summaries,
   `README`/schema metadata, `NOTICE`, `DISCLAIMER`, and release notes.
 - Do not copy downloaded PDFs, builder-local caches, unreviewed large
   artifacts, or generated files back into this builder repository.
@@ -494,11 +504,13 @@ Step 4: open a PR into the data repository.
 
 Step 5: include publication context.
 
-- Use clear `v0 preview` language.
-- State whether outputs are report-level metadata only or include any
-  additional reviewed fields.
+- Use clear `v0 report index` language.
+- State that outputs are listing-page metadata only and do not contain PDF
+  contents, extracted text, finding rows, OCR, LLM-derived fields, or advanced
+  analytics.
 - Include source provenance, run dates, diagnostics summary, caveats, known
-- limitations, LLM model/prompt provenance for LLM-derived fields, CC BY 4.0
+  limitations, CC BY 4.0
   target license notice, source attribution to the Ministry of Welfare, and
   derived-data pipeline attribution.
-- State that parsed data is unofficial and may contain parsing errors.
+- State that the index is unofficial derived data from the public Gov.il listing
+  and may contain collection or source-site interpretation errors.

@@ -1,31 +1,41 @@
 # Extraction Methodology
 
-The pipeline must be auditable and provenance-preserving, but it can no longer
-be deterministic-only. Real Ministry PDF reports do not expose enough stable
+The pipeline must be auditable and provenance-preserving, but it is now layered.
+The first layer is a source-observed report index from the Gov.il listing page
+and does not require PDF parsing. PDF-content-derived layers cannot be
+deterministic-only: real Ministry PDF reports do not expose enough stable
 embedded text structure for reliable metadata and finding extraction, and the
-source PDFs are not expected to change in the near term. V1 therefore uses both
-deterministic extraction and LLM-based extraction on every production run.
+source PDFs are not expected to change in the near term. Those later layers use
+both deterministic extraction and LLM-based extraction in production.
 
 LLM extraction is a normal required stage, not an optional rescue path. It must
 still be schema-bound, reproducible enough for review, and explicit about model
 and prompt versions.
 
-## Extraction Layers
+## Dataset and Extraction Layers
 
-1. Source discovery and download preserve Gov.il provenance, checksums, and HTTP
-   diagnostics.
-2. PyMuPDF extracts embedded text and page text where available.
-3. pypdf records page count and structural metadata.
-4. PDF rendering creates page images or page crops for multimodal LLM
+1. Report index collection reads Gov.il listing-page cards and preserves the
+   visible Hebrew fields without parsing PDF contents.
+2. Source discovery and download preserve Gov.il provenance, PDF URLs,
+   checksums, and HTTP diagnostics.
+3. PyMuPDF extracts embedded text and page text where available.
+4. pypdf records page count and structural metadata.
+5. PDF rendering creates page images or page crops for multimodal LLM
    extraction.
-5. Deterministic parsers produce cheap, explainable candidates for fields they
+6. Deterministic parsers produce cheap, explainable candidates for fields they
    can parse reliably.
-6. Embedded-text LLM extraction produces structured candidates from extracted
+7. Embedded-text LLM extraction produces structured candidates from extracted
    text and provenance context.
-7. Multimodal LLM extraction produces structured candidates from rendered pages
+8. Multimodal LLM extraction produces structured candidates from rendered pages
    when layout, scanned text, or visually grouped fields are needed.
-8. Reconciliation merges candidates into canonical rows and preserves conflicts
+9. Reconciliation merges candidates into canonical rows and preserves conflicts
    as diagnostics.
+
+The report index layer is intentionally lighter than the extraction layers that
+follow it. It should capture only what the listing exposes: `שם מסגרת`,
+`סוג מסגרת`, `סמל מסגרת`, `מינהל`, `מחוז`, `תאריך ביצוע`, source links, and
+provenance. `מינהל` maps to the English alias `administration`; `מחוז` maps to
+`district`.
 
 OCR may still be useful later, but it is not the primary solution. If OCR is
 added, OCR output is another candidate source that must be reconciled and

@@ -35,6 +35,18 @@ put project design detail in `docs/`.
   `AdanimInstitue/israel-welfare-inspection-dataset`.
 - Publication to the data repo must be PR-based; do not push directly to `main`.
 
+## Layered Dataset Direction
+
+- Public outputs should be planned as progressive dataset layers: report index,
+  source documents/PDF identity, raw extracted text, processed canonical tables,
+  and advanced analytics.
+- The first implementation target is the report index layer: a CSV/JSONL table
+  of Gov.il listing-page facts only, before downloading PDFs or parsing report
+  contents.
+- Keep the first public report-index CSV source-observed and Hebrew-columned.
+  Use `administration` for `מינהל` and `district` for `מחוז` in internal
+  English docs or field aliases.
+
 ## PR 1 Scope
 
 - PR 1 is planning/scaffold only.
@@ -55,10 +67,13 @@ put project design detail in `docs/`.
 
 ## Parsing And Data Rules
 
+- Do not require PDF text extraction, LLM extraction, OCR, reconciliation, or
+  finding extraction before producing the report index layer. Those stages
+  enrich later layers.
 - Use both deterministic extraction and LLM-based extraction in normal
-  production runs. The real source PDFs are not reliably parseable through
-  embedded text alone, and the Ministry does not expect to change the PDF
-  structure in the near term.
+  production runs for PDF-content-derived layers. The real source PDFs are not
+  reliably parseable through embedded text alone, and the Ministry does not
+  expect to change the PDF structure in the near term.
 - LLM extraction must be auditable, schema-bound, and provenance-preserving.
   Do not accept opaque free-text LLM answers into canonical outputs.
 - Multimodal LLM extraction should inspect rendered PDF pages when embedded

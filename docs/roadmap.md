@@ -6,6 +6,27 @@ Establish architecture, schema, extraction methodology, privacy/publication
 policy, operations, roadmap, implementation plan, agent instructions, minimal
 package skeleton, placeholder schemas, and CI.
 
+## Layered Dataset Strategy
+
+The project now treats public outputs as progressive dataset layers rather than
+a single PDF-first ETL product:
+
+1. Report index layer: a source-observed CSV/JSONL inventory of every report
+   visible on the Gov.il listing page, without PDF content.
+2. Source document layer: PDF URLs, downloaded file identity, checksums,
+   manifests, and download diagnostics.
+3. Raw text layer: extracted text and extraction diagnostics per
+   report/document.
+4. Processed canonical layer: cleaned, normalized, reconciled, schema-improved
+   tables built from source metadata and extracted content.
+5. Advanced analytics layer: derived insights and whole-dataset analyses built
+   on top of reviewed canonical data.
+
+The first layer is useful and publishable in principle without downloading or
+parsing PDFs. Later PR 7-11 extraction, rendering, reconciliation, publication,
+and finding-contract work remains valid as downstream infrastructure for the
+source document, raw text, processed canonical, and analytics layers.
+
 ## PR 2: Source Discovery Prototype
 
 Investigate the Gov.il dynamic collector, especially `skip=0` pagination and
@@ -30,17 +51,6 @@ administration, visit type, visit date, publication date, and page count.
 ## PR 6: Schema Validation and Dataset Exports
 
 Implement canonical schema validation and export CSV/JSONL outputs locally.
-
-## Optional Manual v0 Preview Dataset Publication
-
-Before automation, the project may publish a report-metadata-first `v0 preview`
-manually into the paired data repository. Real PDF inspection showed that
-deterministic embedded-text parsing alone is not publication-quality, so the v0
-preview should wait for required LLM extraction and reconciliation unless it is
-explicitly framed as a source inventory only. Publication must use a data-repo
-PR, include provenance and caveats, avoid downloaded PDFs and unreviewed large
-artifacts, and stop if local diagnostics show validation, coverage, LLM,
-reconciliation, or privacy concerns.
 
 ## PR 7: LLM Extraction Contracts and Page Rendering
 
@@ -108,8 +118,47 @@ ignored sidecars, and keeps findings as candidates only. It does not publish
 finding rows, add canonical exports, call live providers, OCR PDFs, build
 dashboards, or change scheduled workflows.
 
-## PR 12+: Detailed Findings Extraction, OCR, Quality Dashboards
+## PR 12: Layered Dataset Redesign
+
+Reframe the project docs and agent instructions around layered public data
+products. Define the report index layer as the first implementation target with
+source-observed Hebrew CSV columns:
+
+- `שם מסגרת`
+- `סוג מסגרת`
+- `סמל מסגרת`
+- `מינהל`
+- `מחוז`
+- `תאריך ביצוע`
+
+Use `administration` as the English translation for `מינהל` and `district` for
+`מחוז`. Keep this PR docs-only: no runtime code, schema implementation,
+generated datasets, or publication workflow changes.
+
+## PR 13: Report Index Layer Implementation
+
+Implement the first layer only. Collect Gov.il listing-page metadata, validate
+the six Hebrew source-observed fields, preserve stable IDs and provenance, and
+export ignored local `reports_index.csv` and JSONL preview artifacts. Do not
+download PDFs except to capture visible/download-link metadata, parse PDF text,
+run LLM/OCR extraction, publish to the data repository, or infer values that
+are not visible on the listing page.
+
+## Optional Manual v0 Report Index Publication
+
+After PR 13 exists and its local report-index artifacts have been reviewed, the
+project may publish a `v0 report index` manually into the paired data
+repository. This preview is explicitly a source inventory built from
+listing-page facts only. It does not need PDF text extraction, LLM extraction,
+OCR, reconciliation, or finding extraction because it does not claim to
+represent report contents. Publication must use a data-repo PR, include
+provenance and caveats, avoid downloaded PDFs and unreviewed large artifacts,
+and stop if local index validation or source coverage diagnostics show
+structural problems.
+
+## PR 14+: Downstream Layers, Findings, OCR, Quality Dashboards
 
 Expand finding-level extraction, optional OCR candidate generation, quality
-reports, parse warning dashboards, broader fixture coverage, and model/prompt
-evaluation sets.
+reports, parse warning dashboards, broader fixture coverage, model/prompt
+evaluation sets, raw-text exports, processed canonical exports, and advanced
+analytics after the report index layer is implemented.

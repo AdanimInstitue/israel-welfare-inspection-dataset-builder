@@ -1,7 +1,22 @@
 # Data Quality
 
-Data quality is handled through validation, parse warnings, confidence scores,
-fixtures, provenance, LLM candidate review, and reconciliation diagnostics.
+Data quality is handled per dataset layer through validation, parse warnings,
+confidence scores, fixtures, provenance, LLM candidate review, and
+reconciliation diagnostics.
+
+## Layered Quality Gates
+
+The report index layer has a source-observed quality gate. It should validate
+row identity, duplicate report/index IDs, the six Hebrew listing fields,
+Gov.il/PDF link shapes where present, pagination/source coverage diagnostics,
+and collection run provenance. It should not require PDF downloads, extracted
+text, OCR, LLM extraction, reconciliation, or finding extraction.
+
+The source document layer adds PDF URL/download/checksum validation. The raw
+text layer adds text extraction diagnostics. The processed canonical layer adds
+normalization, reconciliation, LLM evaluation, privacy checks, and schema
+validation. The advanced analytics layer adds reproducibility checks for
+derived metrics and whole-dataset assumptions.
 
 ## Parse Warnings
 
@@ -122,20 +137,19 @@ to JSONL expected values, records field-level coverage and correctness, and
 keeps regression reporting as a structural field until a reviewed baseline is
 available.
 
-## v0 Preview Quality Gate
+## v0 Report Index Quality Gate
 
-Before any manual v0 preview publication, review local diagnostics from every
-stage: discovery, download, text extraction, page rendering, LLM extraction,
-reconciliation, metadata parsing, and export. Do not publish the preview if
-diagnostics indicate missing required provenance, structural validation
-failures, unexpectedly low extraction coverage, blocked or incomplete source
-access, required LLM stages not run, unresolved reconciliation conflicts, or
-privacy risk.
+Before any manual v0 report index publication, review local diagnostics for
+report index collection, source coverage, row validation, duplicate IDs,
+pagination stop reasons, and output serialization. Do not publish the preview
+if diagnostics indicate missing required provenance, structural validation
+failures, blocked or incomplete source access, duplicate primary keys, broken
+source/PDF links where required, or privacy risk.
 
-The v0 preview should publish only reviewed report-level metadata and a concise
-diagnostics summary. It should not publish finding-level rows, downloaded PDFs,
-or unreviewed large artifacts. LLM-derived fields may be included only when
-they carry source evidence, model/prompt provenance, and reconciliation status.
+The v0 report index should publish only reviewed listing-page metadata and a
+concise diagnostics summary. It should not publish finding-level rows,
+downloaded PDFs, raw extracted text, LLM-derived fields, OCR output, or
+unreviewed large artifacts.
 
 The PR 8 reconciler makes unresolved reconciliation explicit. Any report with a
 `needs_review` decision should block publication until reviewed or resolved by
