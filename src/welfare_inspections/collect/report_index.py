@@ -194,8 +194,9 @@ def collect_report_index(
 
     own_client = client is None
     http_client = client or GovilClient()
+    effective_page_size = page_size
     try:
-        records, diagnostics, needs_browser = _collect_structured(
+        records, diagnostics, needs_browser, effective_page_size = _collect_structured(
             start_url=start_url,
             max_pages=max_pages,
             page_size=page_size,
@@ -210,13 +211,24 @@ def collect_report_index(
 
     if needs_browser:
         collector = browser_collector or collect_report_index_from_browser
-        browser_result = collector(
-            start_url,
-            max_pages,
-            page_size,
-            request_delay_seconds,
-            collection_run_id,
-        )
+        try:
+            browser_result = collector(
+                start_url,
+                max_pages,
+                effective_page_size,
+                request_delay_seconds,
+                collection_run_id,
+            )
+        except Exception as exc:
+            diagnostics.source_path_attempted = list(
+                dict.fromkeys([*diagnostics.source_path_attempted, "browser_dom"])
+            )
+            diagnostics.source_path_used = "browser_dom"
+            diagnostics.stop_reason = "browser_fallback_error"
+            diagnostics.notes.append(f"browser_fallback_error:{exc.__class__.__name__}")
+            diagnostics.finished_at = utc_now()
+            _write_diagnostics_only(diagnostics_path, diagnostics)
+            raise
         records = browser_result.records
         browser_diagnostics = browser_result.diagnostics
         browser_diagnostics.output_csv_path = str(output_csv_path)
@@ -420,13 +432,14 @@ def _collect_structured(
     collection_run_id: str,
     diagnostics: ReportIndexRunDiagnostics,
     client: GovilClient,
-) -> tuple[list[ReportIndexRecord], ReportIndexRunDiagnostics, bool]:
+) -> tuple[list[ReportIndexRecord], ReportIndexRunDiagnostics, bool, int]:
     diagnostics.source_path_attempted.append("structured_dynamic_collector")
     records: list[ReportIndexRecord] = []
     config: DynamicCollectorConfig | None = None
 
+    effective_page_size = page_size
     for page_index in range(max_pages):
-        skip = page_index * page_size
+        skip = page_index * effective_page_size
         page_url = _url_with_skip(start_url, skip)
         diagnostics.attempted_urls.append(page_url)
         page_fetch = client.fetch(page_url)
@@ -435,18 +448,19 @@ def _collect_structured(
             diagnostics.blocked_responses += 1
             diagnostics.stop_reason = "blocked_response"
             diagnostics.notes.append("structured_path_blocked_before_fallback")
-            return records, diagnostics, True
+            return records, diagnostics, True, effective_page_size
         if not page_fetch.html or page_fetch.diagnostic.status_code not in {200, None}:
             diagnostics.stop_reason = "http_error_or_empty_response"
             diagnostics.notes.append("structured_path_unavailable_before_fallback")
-            return records, diagnostics, True
+            return records, diagnostics, True, effective_page_size
 
         if config is None:
             config = parse_dynamic_collector_config(page_fetch.html, page_url=page_url)
         if config is None:
             diagnostics.stop_reason = "missing_dynamic_collector_config"
             diagnostics.notes.append("structured_config_missing_before_fallback")
-            return records, diagnostics, True
+            return records, diagnostics, True, effective_page_size
+        effective_page_size = config.items_per_page
 
         diagnostics.attempted_urls.append(config.endpoint_url)
         structured_fetch = client.post_json(
@@ -464,11 +478,14 @@ def _collect_structured(
             diagnostics.blocked_responses += 1
             diagnostics.stop_reason = "blocked_response"
             diagnostics.notes.append("structured_endpoint_blocked_before_fallback")
-            return records, diagnostics, True
-        if structured_fetch.diagnostic.error:
+            return records, diagnostics, True, effective_page_size
+        if (
+            structured_fetch.diagnostic.error
+            or structured_fetch.diagnostic.status_code not in {200, None}
+        ):
             diagnostics.stop_reason = "http_error_or_empty_response"
             diagnostics.notes.append("structured_endpoint_error_before_fallback")
-            return records, diagnostics, True
+            return records, diagnostics, True, effective_page_size
 
         page_records = parse_structured_report_index_records(
             structured_fetch.data,
@@ -493,14 +510,14 @@ def _collect_structured(
                 "Structured DynamicCollector response omitted required card fields; "
                 "falling back to browser-rendered DOM collection."
             )
-            return records, diagnostics, True
+            return records, diagnostics, True, effective_page_size
         if page_index < max_pages - 1 and request_delay_seconds > 0:
             time.sleep(request_delay_seconds)
     else:
         diagnostics.stop_reason = "max_pages"
 
     diagnostics.source_path_used = "structured_dynamic_collector"
-    return records, diagnostics, False
+    return records, diagnostics, False, effective_page_size
 
 
 def _validate_and_dedupe(
@@ -586,6 +603,14 @@ def _write_outputs(
             for record in records
         ),
     )
+    _atomic_write_text(diagnostics_path, diagnostics.model_dump_json(indent=2) + "\n")
+
+
+def _write_diagnostics_only(
+    diagnostics_path: Path,
+    diagnostics: ReportIndexRunDiagnostics,
+) -> None:
+    diagnostics_path.parent.mkdir(parents=True, exist_ok=True)
     _atomic_write_text(diagnostics_path, diagnostics.model_dump_json(indent=2) + "\n")
 
 
@@ -734,7 +759,7 @@ def _structured_item_url(page_url: str, url_name: str | None) -> str | None:
 def _dom_candidate_cards(soup: BeautifulSoup) -> list[Tag]:
     cards: list[Tag] = []
     for tag in soup.find_all(["article", "li", "tr", "section", "div"]):
-        if not isinstance(tag, Tag):
+        if not isinstance(tag, Tag):  # pragma: no cover - BeautifulSoup yields tags.
             continue
         values = _extract_label_value_pairs(tag)
         has_enough_fields = sum(1 for value in values.values() if value) >= 2
@@ -760,7 +785,9 @@ def _extract_label_value_pairs(card: Tag) -> dict[str, str | None]:
         alias, value = parsed
         if not values[alias]:
             values[alias] = value
-    for element in card.find_all(attrs=True):
+    for element in card.find_all(True):
+        if not element.attrs:
+            continue
         for attr in ("aria-label", "title", "data-label", "data-value"):
             parsed = _parse_label_text(str(element.get(attr, "")))
             if not parsed:
