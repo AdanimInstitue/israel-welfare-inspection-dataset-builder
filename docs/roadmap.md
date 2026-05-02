@@ -144,6 +144,15 @@ download PDFs except to capture visible/download-link metadata, parse PDF text,
 run LLM/OCR extraction, publish to the data repository, or infer values that
 are not visible on the listing page.
 
+Implemented as the manual `welfare-inspections collect-report-index` command.
+It writes ignored local `outputs/report_index/reports_index.csv`,
+`reports_index.jsonl`, and `report_index_diagnostics.json`; uses the structured
+Gov.il DynamicCollector response only when all six visible card fields are
+present; falls back to browser-rendered public DOM collection when structured
+records are incomplete; and records source-path, field-coverage, pagination,
+duplicate-ID, missing-field, malformed source-date-text, run, and output-path
+diagnostics. Tests remain mocked/offline only.
+
 ## Optional Manual v0 Report Index Publication
 
 After PR 13 exists and its local report-index artifacts have been reviewed, the

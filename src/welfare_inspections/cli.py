@@ -36,10 +36,17 @@ from welfare_inspections.collect.reconcile import (
     reconcile_report_metadata,
     run_backfill_dry_run,
 )
+from welfare_inspections.collect.report_index import (
+    BrowserCollectionUnavailable,
+)
+from welfare_inspections.collect.report_index import (
+    collect_report_index as collect_report_index_layer,
+)
 from welfare_inspections.collect.settings import (
     DiscoverySettings,
     DownloadSettings,
     ParseSettings,
+    ReportIndexSettings,
 )
 from welfare_inspections.collect.weekly import (
     UnsupportedWeeklyProductionMode,
@@ -126,6 +133,73 @@ def discover(
     console.print(
         f"Discovered {len(records)} source records; "
         f"stop_reason={run_diagnostics.stop_reason}"
+    )
+
+
+@app.command("collect-report-index")
+def collect_report_index(
+    output_csv: Annotated[
+        Path,
+        typer.Option(
+            "--output-csv",
+            help="Path for report-index CSV with exact Hebrew source columns.",
+        ),
+    ] = Path("outputs/report_index/reports_index.csv"),
+    output_jsonl: Annotated[
+        Path,
+        typer.Option(
+            "--output-jsonl",
+            help="Path for report-index JSONL with provenance fields.",
+        ),
+    ] = Path("outputs/report_index/reports_index.jsonl"),
+    diagnostics: Annotated[
+        Path,
+        typer.Option(
+            "--diagnostics",
+            help="Path for report-index diagnostics JSON.",
+        ),
+    ] = Path("outputs/report_index/report_index_diagnostics.json"),
+    start_url: Annotated[
+        str | None,
+        typer.Option(help="Gov.il dynamic collector URL to start from."),
+    ] = None,
+    max_pages: Annotated[
+        int | None,
+        typer.Option(min=1, help="Maximum collector pages to inspect."),
+    ] = None,
+    page_size: Annotated[
+        int | None,
+        typer.Option(min=1, help="Skip increment between collector pages."),
+    ] = None,
+    request_delay_seconds: Annotated[
+        float | None,
+        typer.Option(min=0.0, help="Delay between page requests."),
+    ] = None,
+) -> None:
+    """Collect listing-page report-index facts without downloading PDFs."""
+    settings = ReportIndexSettings()
+    try:
+        records, run_diagnostics = collect_report_index_layer(
+            output_csv_path=output_csv,
+            output_jsonl_path=output_jsonl,
+            diagnostics_path=diagnostics,
+            start_url=start_url or settings.start_url,
+            max_pages=max_pages or settings.max_pages,
+            page_size=page_size or settings.page_size,
+            request_delay_seconds=(
+                request_delay_seconds
+                if request_delay_seconds is not None
+                else settings.request_delay_seconds
+            ),
+        )
+    except BrowserCollectionUnavailable as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(code=2) from exc
+    console.print(
+        f"Collected {len(records)} report-index records; "
+        f"source_path={run_diagnostics.source_path_used}; "
+        f"missing_fields={run_diagnostics.missing_field_records}; "
+        f"duplicates={run_diagnostics.duplicate_id_records}"
     )
 
 

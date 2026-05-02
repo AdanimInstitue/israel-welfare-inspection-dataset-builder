@@ -22,6 +22,20 @@ class DiscoverySettings(BaseSettings):
     request_delay_seconds: float = Field(default=1.0, ge=0)
 
 
+class ReportIndexSettings(BaseSettings):
+    """Environment-configurable defaults for manual report-index runs."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="WELFARE_INSPECTIONS_REPORT_INDEX_",
+        extra="ignore",
+    )
+
+    start_url: str = CANONICAL_SOURCE_URL
+    max_pages: int = Field(default=5, ge=1)
+    page_size: int = Field(default=10, ge=1)
+    request_delay_seconds: float = Field(default=1.0, ge=0)
+
+
 class DownloadSettings(BaseSettings):
     """Environment-configurable defaults for manual PDF downloads."""
 

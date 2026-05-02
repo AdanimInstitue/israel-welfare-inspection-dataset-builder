@@ -79,6 +79,14 @@ not be required before an earlier layer is useful: the report index layer does
 not download PDFs, parse contents, run OCR, call LLM providers, infer missing
 values, or publish findings.
 
+PR 13 implements the first local report index layer with the manual
+`collect-report-index` command. It writes ignored local CSV/JSONL/diagnostics
+artifacts under `outputs/report_index/`, prefers complete structured
+DynamicCollector data, falls back to browser-rendered public DOM collection when
+structured records are incomplete, and records source-path, field-coverage,
+pagination, duplicate-ID, missing-field, malformed source-date-text, and run
+provenance diagnostics.
+
 ## Intended Pipeline Stages
 
 1. Discover report cards from the Gov.il portal and emit the report index layer.
@@ -254,12 +262,13 @@ israel-welfare-inspection-dataset-builder/
       config.py
       logging.py
       paths.py
-      collect/
-        __init__.py
-        govil_client.py
-        portal_discovery.py
-        browser_discovery.py
-        models.py
+    collect/
+      __init__.py
+      govil_client.py
+      report_index.py
+      portal_discovery.py
+      browser_discovery.py
+      models.py
       download/
         __init__.py
         pdf_downloader.py

@@ -91,6 +91,17 @@ infer values that are not visible on the listing page, parse PDF contents,
 normalize facility names, extract findings, or treat a PDF-derived value as
 source-observed listing metadata.
 
+PR 13 implements this layer locally. `reports_index.csv` is restricted to the
+six Hebrew columns above and in that order. `reports_index.jsonl` uses the same
+six Hebrew keys plus `report_index_id`, `source_record_id`, `govil_item_url`,
+`pdf_url`, `discovered_at`, `source_page_url`, `source_skip`,
+`source_position`, `collection_run_id`, and `collector_version`.
+`report_index_diagnostics.json` records the source path used, attempted source
+paths, field coverage by path, page/source counts, HTTP/block diagnostics,
+duplicate IDs, missing visible fields, malformed date-as-source-text warnings,
+and output paths. The implementation treats malformed `תאריך ביצוע` text as a
+source-text warning rather than normalizing or replacing the visible value.
+
 ## `source_documents`
 
 Tracks discovered source PDFs and their provenance.

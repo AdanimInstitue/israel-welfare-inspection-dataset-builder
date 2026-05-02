@@ -375,34 +375,37 @@ Tasks:
 
 - Add a manual offline-friendly command, likely
   `welfare-inspections collect-report-index`, that collects Gov.il
-  listing-page report cards.
+  listing-page report cards. Done.
 - Emit ignored local preview artifacts under `outputs/report_index/`:
   `reports_index.csv`, `reports_index.jsonl`, and
-  `report_index_diagnostics.json`.
+  `report_index_diagnostics.json`. Done.
 - Preserve the six required Hebrew source-observed fields exactly in the public
   CSV: `שם מסגרת`, `סוג מסגרת`, `סמל מסגרת`, `מינהל`, `מחוז`, and
-  `תאריך ביצוע`.
+  `תאריך ביצוע`. Done.
 - Keep `reports_index.csv` to exactly those six Hebrew columns. Preserve
   companion provenance only in `reports_index.jsonl`: stable report/source IDs,
   Gov.il item URL, visible PDF URL, discovery time, source page/pagination
-  metadata, collection run ID, and collector version.
+  metadata, collection run ID, and collector version. Done.
 - Use the Gov.il structured DynamicCollector response as the primary source
   only when it contains all six visible card fields for emitted records. If the
   structured response omits any required visible field or returns incomplete
   records, fall back to browser-rendered public DOM collection for the affected
   run. Diagnostics must record the source path used and field coverage by path.
+  Done with an optional local Playwright browser fallback and offline-testable
+  injected fallback collector.
 - Validate required provenance, duplicate IDs, malformed dates as source text,
   missing visible fields, pagination/source coverage diagnostics, and output
-  path guards.
-- Use mocked/offline fixture tests only.
+  path guards. Done.
+- Use mocked/offline fixture tests only. Done.
 
 Acceptance criteria:
 
 - The command does not download PDFs, parse PDF text, run OCR, call LLM
   providers, extract findings, normalize facility names, infer missing values,
-  publish to the data repo, or change scheduled workflows.
+  publish to the data repo, or change scheduled workflows. Done.
 - The report index CSV is human-readable and contains exactly the six Hebrew
-  source-observed column names.
+  source-observed column names. Done.
 - The JSONL/provenance output is machine-readable enough to support later
-  source document, raw text, processed canonical, and analytics layers.
-- `ruff check .`, `pytest`, and CLI/help checks pass.
+  source document, raw text, processed canonical, and analytics layers. Done.
+- `ruff check .`, `pytest`, and CLI/help checks pass. Pending final validation
+  in this PR.
