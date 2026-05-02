@@ -6,7 +6,8 @@ extracted text, processed canonical tables, and advanced analytics. Existing
 commands remain useful, but they now belong to downstream layers instead of
 being prerequisites for the first usable dataset.
 
-PR 2 adds a manual source discovery prototype. PR 3 adds a separate manual PDF
+PR 13 adds the manual report index layer. PR 2 adds a manual source discovery
+prototype. PR 3 adds a separate manual PDF
 download/checksum layer that reads the PR 2 source manifest. PR 4 adds a manual
 embedded-text extraction layer that reads the PR 3 download manifest. PR 5 adds
 a manual top-level metadata parser that reads PR 4 extracted text and
@@ -34,6 +35,7 @@ The future CLI should be exposed as `welfare-inspections`.
 
 Current manual commands:
 
+- `welfare-inspections collect-report-index`
 - `welfare-inspections discover`
 - `welfare-inspections download`
 - `welfare-inspections parse`
@@ -49,14 +51,13 @@ Current manual commands:
 
 Planned future commands:
 
-- `welfare-inspections collect-report-index`
 - `welfare-inspections build`
 - `welfare-inspections publish`
 - `welfare-inspections run-all`
 
 Expected behavior:
 
-- `collect-report-index` will write the first-layer report index CSV/JSONL and
+- `collect-report-index` writes the first-layer report index CSV/JSONL and
   diagnostics from Gov.il listing-page facts only.
 - `discover` writes a source manifest JSONL.
 - `download` reads a manifest and downloads/checksums PDFs.
@@ -96,7 +97,7 @@ The command starts at the canonical `skip=0` URL, iterates conservatively, and
 stops on empty, repeated, blocked, or exhausted pages. It records HTTP and parser
 diagnostics, including structured endpoint requests. It does not download PDFs.
 
-Planned PR 13 report index command:
+Current PR 13 report index command:
 
 ```bash
 welfare-inspections collect-report-index \
@@ -105,7 +106,7 @@ welfare-inspections collect-report-index \
   --diagnostics outputs/report_index/report_index_diagnostics.json
 ```
 
-The command should collect only Gov.il listing-page facts visible in the source
+The command collects only Gov.il listing-page facts visible in the source
 cards. `reports_index.csv` must contain exactly the Hebrew source columns
 `שם מסגרת`, `סוג מסגרת`, `סמל מסגרת`, `מינהל`, `מחוז`, and `תאריך ביצוע`.
 `reports_index.jsonl` must contain those same values plus visible item/PDF
@@ -115,11 +116,15 @@ links and provenance. Internal aliases may use `institution_name`,
 
 The primary source path is the Gov.il structured DynamicCollector response when
 it contains all six visible card fields. If that response omits a required
-visible field or returns incomplete records, the command should fall back to
-browser-rendered public DOM collection for the run. Diagnostics must record the
-source path used and per-field coverage. The command must not download PDFs,
-parse PDF text, run OCR, call LLM providers, extract findings, normalize
-facility names, or infer values not visible on the listing page.
+visible field or returns incomplete records, the command falls back to
+browser-rendered public DOM collection for the run. The fallback uses optional
+local Playwright support when available and is injectable for offline tests.
+Diagnostics record the source path used, attempted source paths, per-field
+coverage by path, pagination/source coverage, duplicate IDs, missing visible
+fields, malformed date-like source text, HTTP/block diagnostics, and output
+paths. The command must not download PDFs, parse PDF text, run OCR, call LLM
+providers, extract findings, normalize facility names, or infer values not
+visible on the listing page.
 
 Current PR 3 download command:
 

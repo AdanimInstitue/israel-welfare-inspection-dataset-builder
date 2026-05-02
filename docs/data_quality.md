@@ -12,6 +12,13 @@ Gov.il/PDF link shapes where present, pagination/source coverage diagnostics,
 and collection run provenance. It should not require PDF downloads, extracted
 text, OCR, LLM extraction, reconciliation, or finding extraction.
 
+PR 13 implements the local side of this gate. Report-index diagnostics include
+source path used, attempted source paths, field coverage by path, page/source
+counts, duplicate ID counts, missing visible fields, malformed
+`תאריך ביצוע` source text, HTTP/block diagnostics, and output paths. Malformed
+date-like source text is not normalized or inferred; it remains the source value
+and is flagged for review.
+
 The source document layer adds PDF URL/download/checksum validation. The raw
 text layer adds text extraction diagnostics. The processed canonical layer adds
 normalization, reconciliation, LLM evaluation, privacy checks, and schema
@@ -150,6 +157,11 @@ The v0 report index should publish only reviewed listing-page metadata and a
 concise diagnostics summary. It should not publish finding-level rows,
 downloaded PDFs, raw extracted text, LLM-derived fields, OCR output, or
 unreviewed large artifacts.
+
+For PR 13 artifacts specifically, stop before publication if
+`report_index_diagnostics.json` shows incomplete source access, unexpected
+fallback failure, duplicate report/index IDs, missing required visible fields,
+or field coverage lower than expected for the source path used.
 
 The PR 8 reconciler makes unresolved reconciliation explicit. Any report with a
 `needs_review` decision should block publication until reviewed or resolved by

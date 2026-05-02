@@ -17,6 +17,7 @@ src/
     cli.py           Typer CLI entrypoint with manual discovery command
     collect/
       govil_client.py       conservative manual Gov.il HTTP client
+      report_index.py       manual report-index collector/exporter
       llm_extract.py        offline LLM candidate contracts/plumbing/evaluator
       publish.py            dry-run publication PR planning/gate contracts
       reconcile.py          offline reconciliation and dry-run backfill plumbing
@@ -53,6 +54,7 @@ schemas/
 tests/
   test_imports.py      package and CLI smoke tests
   test_docs_exist.py   docs/schema existence and content-contract tests
+  test_report_index.py mocked report-index collection/export tests
   test_pdf_download.py mocked manifest/download/checksum tests
   test_pdf_text_extraction.py synthetic embedded-text/normalization tests
   test_pdf_render.py synthetic page rendering/artifact contract tests
@@ -131,16 +133,20 @@ data_samples/
 ## Current Planning Direction
 
 The next implementation target is the report index layer: a source-observed
-CSV/JSONL inventory of all reports visible on the Gov.il listing page. The CSV
-keeps the Hebrew columns `שם מסגרת`, `סוג מסגרת`, `סמל מסגרת`, `מינהל`,
-`מחוז`, and `תאריך ביצוע`. Internal English aliases should use
-`administration` for `מינהל` and `district` for `מחוז`.
+CSV/JSONL inventory of all reports visible on the Gov.il listing page. PR 13
+adds `welfare-inspections collect-report-index`, which writes ignored local
+`outputs/report_index/reports_index.csv`, `reports_index.jsonl`, and
+`report_index_diagnostics.json`. The CSV keeps exactly the Hebrew columns
+`שם מסגרת`, `סוג מסגרת`, `סמל מסגרת`, `מינהל`, `מחוז`, and `תאריך ביצוע`.
+Internal English aliases use `administration` for `מינהל` and `district` for
+`מחוז`.
 
 The report index layer must not download PDFs, parse report text, run OCR, call
 LLM providers, extract findings, normalize facility names, infer missing
-values, or publish advanced analytics. It should preserve stable IDs, source
-links, PDF links where visible, pagination/source metadata, collection run
-metadata, and diagnostics.
+values, or publish advanced analytics. It preserves stable IDs, source links,
+PDF links where visible, pagination/source metadata, collection run metadata,
+collector version, field coverage, duplicate/missing-field diagnostics, and
+malformed date-as-source-text warnings.
 
 Real PDF inspection still matters for downstream layers: deterministic
 embedded-text metadata parsing is not sufficient for content-derived
@@ -170,7 +176,8 @@ LLM planning constraints:
 ## Automation
 
 - Local validation: `python -m pip install -e ".[dev]"`, `ruff check .`,
-  `pytest`, `python -m welfare_inspections.cli reconcile --help`,
+  `pytest`, `python -m welfare_inspections.cli collect-report-index --help`,
+  `python -m welfare_inspections.cli reconcile --help`,
   `python -m welfare_inspections.cli backfill --help`,
   `python -m welfare_inspections.cli weekly-plan --help`,
   `python -m welfare_inspections.cli publish-plan --help`

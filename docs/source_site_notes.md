@@ -17,9 +17,9 @@ local PDF paths. PR 5 adds an inert-by-default metadata parser that consumes
 only PR 4 extracted text and diagnostics. PR 6 adds local schema validation and
 exports. These stages are tested only with mocked or synthetic inputs.
 
-PR 12 reframes the source work around a report index layer first. The next
-implementation should collect the report-card facts visible on the Gov.il
-listing page before downloading or parsing PDFs. The source-observed fields are
+PR 12 reframes the source work around a report index layer first. PR 13
+implements collection of the report-card facts visible on the Gov.il listing
+page before downloading or parsing PDFs. The source-observed fields are
 `שם מסגרת`, `סוג מסגרת`, `סמל מסגרת`, `מינהל`, `מחוז`, and `תאריך ביצוע`.
 `reports_index.csv` should contain exactly those six Hebrew columns, while
 `reports_index.jsonl` preserves the same values with source links, PDF links
@@ -31,6 +31,15 @@ contains all six visible card fields for emitted records. If it omits any
 required visible field or returns incomplete records, the implementation should
 fall back to browser-rendered public DOM collection and record that fallback in
 diagnostics.
+
+PR 13 keeps this fallback conservative: the manual command can use optional
+local Playwright support for browser-rendered public DOM collection, and the
+fallback path is injectable for mocked/offline tests. If structured data is
+incomplete and browser support is unavailable locally, the command fails
+clearly rather than emitting incomplete structured rows as if they were complete.
+The command writes `outputs/report_index/reports_index.csv`,
+`outputs/report_index/reports_index.jsonl`, and
+`outputs/report_index/report_index_diagnostics.json`.
 
 Real-source inspection after PR 6 showed two practical source constraints:
 

@@ -37,6 +37,14 @@ follow it. It should capture only what the listing exposes: `שם מסגרת`,
 provenance. `מינהל` maps to the English alias `administration`; `מחוז` maps to
 `district`.
 
+PR 13 implements report index collection without invoking any PDF-content
+extraction stage. It accepts the structured DynamicCollector response only when
+all six visible listing fields are present for emitted records; otherwise it
+uses browser-rendered public DOM collection for the run. It records field
+coverage, pagination/source coverage, missing fields, duplicate IDs, malformed
+source-date text, and output guards as diagnostics. It does not normalize the
+listing values or infer missing values.
+
 OCR may still be useful later, but it is not the primary solution. If OCR is
 added, OCR output is another candidate source that must be reconciled and
 versioned like deterministic and LLM candidates.
