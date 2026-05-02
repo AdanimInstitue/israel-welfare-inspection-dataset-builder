@@ -59,8 +59,9 @@ The architecture is organized around progressive dataset layers:
 
 1. **Report index layer**: a human- and machine-readable inventory of all
    published reports visible on the Gov.il listing page. The public CSV keeps
-   the source-observed Hebrew columns `שם מסגרת`, `סוג מסגרת`, `סמל מסגרת`,
-   `מינהל`, `מחוז`, and `תאריך ביצוע`, plus companion provenance fields.
+   exactly the six source-observed Hebrew columns `שם מסגרת`, `סוג מסגרת`,
+   `סמל מסגרת`, `מינהל`, `מחוז`, and `תאריך ביצוע`. The JSONL sidecar keeps
+   the same values plus machine/provenance fields.
 2. **Source document layer**: the linked PDF URL, download status, local ignored
    path, checksums, HTTP diagnostics, and source/download manifests.
 3. **Raw text layer**: embedded text extraction, page text artifacts, raw text

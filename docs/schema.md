@@ -42,8 +42,8 @@ should be avoided for canonical rows.
 ## `reports_index`
 
 The first public layer is a report index table containing facts visible on the
-Gov.il listing page. The public CSV should preserve the original Hebrew
-source-observed column names:
+Gov.il listing page. For v1, `reports_index.csv` must contain exactly these six
+source-observed Hebrew columns, in this order:
 
 | Field | Type | Class |
 | --- | --- | --- |
@@ -68,9 +68,9 @@ Internal English aliases may use:
 Use `administration` as the English translation for `מינהל`; use `district`
 for `מחוז`. Do not use `county`.
 
-The implementation should also preserve companion machine/provenance fields,
-either in the same JSONL/metadata output or as additional CSV columns if the
-publication design explicitly allows them:
+The implementation must write `reports_index.jsonl` with the same six
+source-observed values plus companion machine/provenance fields. Do not add
+these provenance fields to `reports_index.csv` in v1:
 
 | Field | Type | Class |
 | --- | --- | --- |
@@ -85,9 +85,11 @@ publication design explicitly allows them:
 | `collection_run_id` | string | derived |
 | `collector_version` | string | derived |
 
-The report index layer must not infer values that are not visible on the
-listing page, parse PDF contents, normalize facility names, extract findings,
-or treat a PDF-derived value as source-observed listing metadata.
+`report_index_diagnostics.json` should hold run-level validation, coverage,
+pagination, source-path, and error diagnostics. The report index layer must not
+infer values that are not visible on the listing page, parse PDF contents,
+normalize facility names, extract findings, or treat a PDF-derived value as
+source-observed listing metadata.
 
 ## `source_documents`
 

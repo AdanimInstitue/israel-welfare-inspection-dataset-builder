@@ -20,9 +20,17 @@ exports. These stages are tested only with mocked or synthetic inputs.
 PR 12 reframes the source work around a report index layer first. The next
 implementation should collect the report-card facts visible on the Gov.il
 listing page before downloading or parsing PDFs. The source-observed fields are
-`שם מסגרת`, `סוג מסגרת`, `סמל מסגרת`, `מינהל`, `מחוז`, and `תאריך ביצוע`, with
-source links, PDF links where visible, pagination metadata, and collection-run
-provenance preserved as companion metadata.
+`שם מסגרת`, `סוג מסגרת`, `סמל מסגרת`, `מינהל`, `מחוז`, and `תאריך ביצוע`.
+`reports_index.csv` should contain exactly those six Hebrew columns, while
+`reports_index.jsonl` preserves the same values with source links, PDF links
+where visible, pagination metadata, source path, field coverage, and
+collection-run provenance.
+
+The structured DynamicCollector response is the primary source path only if it
+contains all six visible card fields for emitted records. If it omits any
+required visible field or returns incomplete records, the implementation should
+fall back to browser-rendered public DOM collection and record that fallback in
+diagnostics.
 
 Real-source inspection after PR 6 showed two practical source constraints:
 

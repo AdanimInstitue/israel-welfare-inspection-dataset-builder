@@ -106,13 +106,20 @@ welfare-inspections collect-report-index \
 ```
 
 The command should collect only Gov.il listing-page facts visible in the source
-cards. The public CSV should keep the Hebrew source columns `שם מסגרת`,
-`סוג מסגרת`, `סמל מסגרת`, `מינהל`, `מחוז`, and `תאריך ביצוע`. Internal aliases
-may use `institution_name`, `institution_type`, `institution_symbol`,
-`administration`, `district`, and `survey_date`. It may record visible item/PDF
-links and provenance, but it must not download PDFs, parse PDF text, run OCR,
-call LLM providers, extract findings, normalize facility names, or infer values
-not visible on the listing page.
+cards. `reports_index.csv` must contain exactly the Hebrew source columns
+`שם מסגרת`, `סוג מסגרת`, `סמל מסגרת`, `מינהל`, `מחוז`, and `תאריך ביצוע`.
+`reports_index.jsonl` must contain those same values plus visible item/PDF
+links and provenance. Internal aliases may use `institution_name`,
+`institution_type`, `institution_symbol`, `administration`, `district`, and
+`survey_date`.
+
+The primary source path is the Gov.il structured DynamicCollector response when
+it contains all six visible card fields. If that response omits a required
+visible field or returns incomplete records, the command should fall back to
+browser-rendered public DOM collection for the run. Diagnostics must record the
+source path used and per-field coverage. The command must not download PDFs,
+parse PDF text, run OCR, call LLM providers, extract findings, normalize
+facility names, or infer values not visible on the listing page.
 
 Current PR 3 download command:
 

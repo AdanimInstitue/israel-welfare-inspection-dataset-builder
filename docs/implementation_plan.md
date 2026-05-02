@@ -382,9 +382,15 @@ Tasks:
 - Preserve the six required Hebrew source-observed fields exactly in the public
   CSV: `שם מסגרת`, `סוג מסגרת`, `סמל מסגרת`, `מינהל`, `מחוז`, and
   `תאריך ביצוע`.
-- Preserve companion provenance in JSONL and/or documented CSV fields:
-  stable report/source IDs, Gov.il item URL, visible PDF URL, discovery time,
-  source page/pagination metadata, collection run ID, and collector version.
+- Keep `reports_index.csv` to exactly those six Hebrew columns. Preserve
+  companion provenance only in `reports_index.jsonl`: stable report/source IDs,
+  Gov.il item URL, visible PDF URL, discovery time, source page/pagination
+  metadata, collection run ID, and collector version.
+- Use the Gov.il structured DynamicCollector response as the primary source
+  only when it contains all six visible card fields for emitted records. If the
+  structured response omits any required visible field or returns incomplete
+  records, fall back to browser-rendered public DOM collection for the affected
+  run. Diagnostics must record the source path used and field coverage by path.
 - Validate required provenance, duplicate IDs, malformed dates as source text,
   missing visible fields, pagination/source coverage diagnostics, and output
   path guards.
@@ -395,8 +401,8 @@ Acceptance criteria:
 - The command does not download PDFs, parse PDF text, run OCR, call LLM
   providers, extract findings, normalize facility names, infer missing values,
   publish to the data repo, or change scheduled workflows.
-- The report index CSV is human-readable and keeps the Hebrew source-observed
-  column names.
+- The report index CSV is human-readable and contains exactly the six Hebrew
+  source-observed column names.
 - The JSONL/provenance output is machine-readable enough to support later
   source document, raw text, processed canonical, and analytics layers.
 - `ruff check .`, `pytest`, and CLI/help checks pass.
