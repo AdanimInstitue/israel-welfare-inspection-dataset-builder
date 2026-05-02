@@ -102,8 +102,9 @@ The preview PR should include:
 - diagnostics summary and known limitations
 - CC BY 4.0 target license notice for derived outputs
 - attribution to the Ministry of Welfare as source publisher
-- attribution to the Adanim/Taub/builder pipeline for derived parsed data
-- disclaimer that parsed data is unofficial and may contain errors
+- attribution to the Adanim/Taub/builder pipeline for the derived report index
+- disclaimer that the report index is unofficial and may contain source
+  collection or source-site interpretation errors
 
 Do not publish downloaded PDFs, raw extracted text, unreviewed large artifacts,
 finding-level rows, LLM-derived fields, OCR output, advanced analytics, or any

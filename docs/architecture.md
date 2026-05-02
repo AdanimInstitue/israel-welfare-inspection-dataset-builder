@@ -62,8 +62,9 @@ The architecture is organized around progressive dataset layers:
    exactly the six source-observed Hebrew columns `שם מסגרת`, `סוג מסגרת`,
    `סמל מסגרת`, `מינהל`, `מחוז`, and `תאריך ביצוע`. The JSONL sidecar keeps
    the same values plus machine/provenance fields.
-2. **Source document layer**: the linked PDF URL, download status, local ignored
-   path, checksums, HTTP diagnostics, and source/download manifests.
+2. **Source document layer**: the linked PDF URL, download status, checksums,
+   HTTP diagnostics, and source/download manifests. Local ignored paths are
+   builder implementation details, not public dataset fields.
 3. **Raw text layer**: embedded text extraction, page text artifacts, raw text
    diagnostics, and later OCR text if explicitly added.
 4. **Processed canonical layer**: normalized and reconciled report metadata,

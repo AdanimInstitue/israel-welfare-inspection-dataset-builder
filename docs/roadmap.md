@@ -52,17 +52,6 @@ administration, visit type, visit date, publication date, and page count.
 
 Implement canonical schema validation and export CSV/JSONL outputs locally.
 
-## Optional Manual v0 Report Index Publication
-
-Before automation, the project may publish a `v0 report index` manually into
-the paired data repository. This preview is explicitly a source inventory built
-from listing-page facts only. It does not need PDF text extraction, LLM
-extraction, OCR, reconciliation, or finding extraction because it does not claim
-to represent report contents. Publication must use a data-repo PR, include
-provenance and caveats, avoid downloaded PDFs and unreviewed large artifacts,
-and stop if local index validation or source coverage diagnostics show
-structural problems.
-
 ## PR 7: LLM Extraction Contracts and Page Rendering
 
 Add PDF page rendering plus required schema-bound text and multimodal LLM
@@ -154,6 +143,18 @@ export ignored local `reports_index.csv` and JSONL preview artifacts. Do not
 download PDFs except to capture visible/download-link metadata, parse PDF text,
 run LLM/OCR extraction, publish to the data repository, or infer values that
 are not visible on the listing page.
+
+## Optional Manual v0 Report Index Publication
+
+After PR 13 exists and its local report-index artifacts have been reviewed, the
+project may publish a `v0 report index` manually into the paired data
+repository. This preview is explicitly a source inventory built from
+listing-page facts only. It does not need PDF text extraction, LLM extraction,
+OCR, reconciliation, or finding extraction because it does not claim to
+represent report contents. Publication must use a data-repo PR, include
+provenance and caveats, avoid downloaded PDFs and unreviewed large artifacts,
+and stop if local index validation or source coverage diagnostics show
+structural problems.
 
 ## PR 14+: Downstream Layers, Findings, OCR, Quality Dashboards
 
