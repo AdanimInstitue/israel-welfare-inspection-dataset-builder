@@ -1,9 +1,12 @@
 # israel-welfare-inspection-dataset-builder
 
 Planning/scaffold repository for an authorized public-data transparency ETL
-pipeline. This builder repo contains code, schemas, tests, docs, configs, CI,
-and small reviewed fixtures. Generated dataset artifacts belong in the paired
-data repo: `AdanimInstitue/israel-welfare-inspection-dataset`.
+pipeline. Public outputs are now planned as layered dataset products: report
+index, source documents/PDF identity, raw extracted text, processed canonical
+tables, and advanced analytics. This builder repo contains code, schemas,
+tests, docs, configs, CI, and small reviewed fixtures. Generated dataset
+artifacts belong in the paired data repo:
+`AdanimInstitue/israel-welfare-inspection-dataset`.
 
 ## Core Tree
 
@@ -89,8 +92,8 @@ data_samples/
 - Static agent rules: `AGENTS.md`
 - Dynamic agent state: `.agent-plan.md`
 - Canonical source URL and pagination notes: `docs/source_site_notes.md`
-- Canonical entity model: `docs/schema.md`
-- Deterministic-first parsing strategy: `docs/extraction_methodology.md`
+- Layered dataset model and canonical entity model: `docs/schema.md`
+- Layered extraction strategy: `docs/extraction_methodology.md`
 - Required LLM/multimodal extraction and reconciliation plan:
   `docs/extraction_methodology.md`, `docs/architecture.md`,
   `docs/implementation_plan.md`, and `docs/roadmap.md`
@@ -115,7 +118,7 @@ data_samples/
   `schemas/finding_candidate.schema.json`,
   `schemas/finding_extraction_diagnostics.schema.json`, and
   `schemas/inspection.schema.json`
-- Manual v0 preview publication plan:
+- Manual v0 report index publication plan:
   `docs/implementation_plan.md`, `docs/operations.md`,
   `docs/privacy_and_publication_policy.md`, and `docs/data_quality.md`
 - Weekly review-artifact planning contract:
@@ -127,13 +130,25 @@ data_samples/
 
 ## Current Planning Direction
 
-Real PDF inspection showed that deterministic embedded-text metadata parsing is
-not sufficient for publication. The planned production pipeline now requires
-deterministic extraction, rendered page artifacts, embedded-text LLM extraction,
-multimodal LLM extraction, candidate reconciliation, validation, and PR-based
-publication. Weekly jobs process new/changed documents; backfill jobs reprocess
-history when schemas, prompts, models, renderers, parsers, normalization, or
-reconciliation rules change.
+The next implementation target is the report index layer: a source-observed
+CSV/JSONL inventory of all reports visible on the Gov.il listing page. The CSV
+keeps the Hebrew columns `שם מסגרת`, `סוג מסגרת`, `סמל מסגרת`, `מינהל`,
+`מחוז`, and `תאריך ביצוע`. Internal English aliases should use
+`administration` for `מינהל` and `district` for `מחוז`.
+
+The report index layer must not download PDFs, parse report text, run OCR, call
+LLM providers, extract findings, normalize facility names, infer missing
+values, or publish advanced analytics. It should preserve stable IDs, source
+links, PDF links where visible, pagination/source metadata, collection run
+metadata, and diagnostics.
+
+Real PDF inspection still matters for downstream layers: deterministic
+embedded-text metadata parsing is not sufficient for content-derived
+publication. Those later layers require deterministic extraction, rendered page
+artifacts, embedded-text LLM extraction, multimodal LLM extraction, candidate
+reconciliation, validation, and PR-based publication. Weekly jobs process
+new/changed documents; backfill jobs reprocess history when schemas, prompts,
+models, renderers, parsers, normalization, or reconciliation rules change.
 
 LLM planning constraints:
 

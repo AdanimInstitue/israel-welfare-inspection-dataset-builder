@@ -15,6 +15,14 @@ manifests, warnings, LLM extraction candidates, reconciliation decisions, and
 exported datasets are unofficial derived data produced by the builder pipeline
 and may contain parsing, OCR, or LLM errors.
 
+The first public layer is different in scope: `reports_index` is a
+source-observed inventory of facts visible on the Gov.il listing page. It should
+not contain PDF contents, raw extracted text, finding rows, OCR output,
+LLM-derived fields, or advanced analytics. The public CSV keeps the Hebrew
+source columns `שם מסגרת`, `סוג מסגרת`, `סמל מסגרת`, `מינהל`, `מחוז`, and
+`תאריך ביצוע`; English documentation may call `מינהל` "administration" and
+`מחוז` "district".
+
 Publication materials should include:
 
 - CC BY 4.0 target license notice for derived dataset outputs
@@ -79,29 +87,29 @@ The paired data repository should eventually include `NOTICE.md`,
 `DISCLAIMER.md`, `datapackage.json`, schema metadata, source manifests,
 extraction run manifests, and release snapshots.
 
-## v0 Preview Publication Policy
+## v0 Report Index Publication Policy
 
-A first manual dataset publication may be prepared as a `v0 preview` before
-scheduled build and publication automation exists. This preview should be
-report-metadata-first, PR-based into
-`AdanimInstitue/israel-welfare-inspection-dataset`, and reviewed before merge.
+A first manual dataset publication may be prepared as a `v0 report index`
+before scheduled build and publication automation exists. This preview should
+contain listing-page metadata only, be PR-based into
+`AdanimInstitue/israel-welfare-inspection-dataset`, and be reviewed before
+merge.
 
 The preview PR should include:
 
-- clear `v0 preview` language
+- clear `v0 report index` language
 - source provenance and run dates
 - diagnostics summary and known limitations
-- model and prompt provenance for any LLM-derived fields
 - CC BY 4.0 target license notice for derived outputs
 - attribution to the Ministry of Welfare as source publisher
 - attribution to the Adanim/Taub/builder pipeline for derived parsed data
 - disclaimer that parsed data is unofficial and may contain errors
 
-Do not publish downloaded PDFs, unreviewed large artifacts, finding-level rows,
-or any suspected personal/sensitive data in the v0 preview. LLM-derived fields
-must be clearly marked through provenance and reconciliation metadata.
+Do not publish downloaded PDFs, raw extracted text, unreviewed large artifacts,
+finding-level rows, LLM-derived fields, OCR output, advanced analytics, or any
+suspected personal/sensitive data in the v0 report index.
 
-The PR 10 planner may prepare report-level publication PR metadata and command
-plans, but it does not authorize automatic publication. Human reviewers must
-inspect the generated PR text, release notes, diagnostics, and intended
-data-repo file set before any paired data-repo PR is opened.
+The PR 10 planner may prepare publication PR metadata and command plans, but it
+does not authorize automatic publication. Human reviewers must inspect the
+generated PR text, release notes, diagnostics, and intended data-repo file set
+before any paired data-repo PR is opened.

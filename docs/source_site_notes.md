@@ -17,6 +17,13 @@ local PDF paths. PR 5 adds an inert-by-default metadata parser that consumes
 only PR 4 extracted text and diagnostics. PR 6 adds local schema validation and
 exports. These stages are tested only with mocked or synthetic inputs.
 
+PR 12 reframes the source work around a report index layer first. The next
+implementation should collect the report-card facts visible on the Gov.il
+listing page before downloading or parsing PDFs. The source-observed fields are
+`שם מסגרת`, `סוג מסגרת`, `סמל מסגרת`, `מינהל`, `מחוז`, and `תאריך ביצוע`, with
+source links, PDF links where visible, pagination metadata, and collection-run
+provenance preserved as companion metadata.
+
 Real-source inspection after PR 6 showed two practical source constraints:
 
 - Some environments receive Cloudflare 403 or HTML responses from direct HTTP

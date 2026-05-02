@@ -100,39 +100,40 @@ Acceptance criteria:
 - Exported rows retain source provenance and parse diagnostics. Done for
   report rows, field evidence, warnings, and metadata parse diagnostics.
 
-## Manual v0 Preview Dataset Publication
+## Manual v0 Report Index Publication
 
 This is an optional, checkpointed manual path before weekly and publication
-automation. It may be used to produce a first public preview in the paired data
-repository, but only after required LLM extraction and reconciliation are
-represented in the local artifacts. Until those stages exist, the current
-outputs are suitable for pipeline inspection, not publication as meaningful
-parsed metadata.
+automation. It may be used to produce a first public source inventory in the
+paired data repository from Gov.il listing-page facts only. Because this layer
+does not claim to represent PDF contents, it does not require PDF download,
+text extraction, OCR, LLM extraction, reconciliation, or finding extraction.
 
 Steps:
 
-1. Run the local pipeline manually against public Gov.il data:
-   `discover`, `download`, `parse`, future `render-pages`, future
-   `extract-llm`, future `reconcile`, and `export`.
+1. Run the future `collect-report-index` command manually against public Gov.il
+   data and write ignored local `reports_index.csv`, `reports_index.jsonl`, and
+   diagnostics artifacts.
 2. Review generated outputs and diagnostics locally before any publication
    work. Do not publish if diagnostics show structural validation failures,
-   missing required provenance, unexpectedly low extraction coverage, missing
-   required LLM stages, unresolved reconciliation conflicts, or privacy risk.
-3. Prepare a data-repo branch containing only reviewed v0 report metadata
+   missing required provenance, unexpectedly low source coverage, duplicate IDs,
+   blocked/incomplete source access, or privacy risk.
+3. Prepare a data-repo branch containing only reviewed v0 report index
    artifacts, diagnostics summaries, schema/readme metadata, notices, and
-   disclaimers. Do not copy downloaded PDFs, builder-local caches, or large
-   unreviewed artifacts.
+   disclaimers. Do not copy downloaded PDFs, builder-local caches, raw text, or
+   large unreviewed artifacts.
 4. Open a PR into `AdanimInstitue/israel-welfare-inspection-dataset`; do not
    push directly to `main`.
 5. In the data-repo PR, include provenance, caveats, diagnostics summary,
-   license/disclaimer text, and clear `v0 preview` language.
+   license/disclaimer text, and clear `v0 report index` language.
 
 Boundaries:
 
-- Report-level metadata first; finding-level rows need separate reviewed scope.
-- LLM extraction is required once implemented; deterministic-only output is not
-  enough for publication.
-- OCR remains optional and secondary to multimodal LLM extraction.
+- Listing-page metadata first; report-content metadata and finding-level rows
+  need separate reviewed scopes.
+- The report index layer must not infer missing values or use PDF-derived
+  values as listing-page facts.
+- LLM extraction, OCR, and reconciliation remain later-layer requirements for
+  content-derived publication.
 - No scheduled workflow or automated publication.
 - No generated dataset artifacts committed to this builder repository.
 - Publication remains PR-based and human-reviewed.
@@ -335,4 +336,67 @@ Out of scope for PR 11:
 
 - OCR, live LLM/provider calls, dashboards, canonical finding exports,
   publication of finding rows, scheduled workflows, and real network-dependent
-  tests remain later PR 12+ work.
+  tests remain later PR 14+ downstream-layer work.
+
+## PR 12: Layered Dataset Redesign
+
+Tasks:
+
+- Reframe architecture, roadmap, schema, operations, extraction methodology,
+  data quality, privacy/publication policy, agent instructions, LLM context, and
+  `.agent-plan.md` around progressive dataset layers.
+- Define the layers as report index, source documents/PDF identity, raw text,
+  processed canonical tables, and advanced analytics.
+- Define the report index layer as the first usable/publication candidate: a
+  human- and machine-readable CSV/JSONL inventory of Gov.il listing-page facts
+  without report contents.
+- Document the Hebrew public CSV columns: `שם מסגרת`, `סוג מסגרת`,
+  `סמל מסגרת`, `מינהל`, `מחוז`, and `תאריך ביצוע`.
+- Document internal aliases using `administration` for `מינהל` and `district`
+  for `מחוז`.
+- Make the next implementation PR target only report-index collection and local
+  export.
+
+Acceptance criteria:
+
+- Docs no longer imply that PDF text extraction, LLM extraction,
+  reconciliation, or finding extraction must happen before the first useful
+  dataset layer.
+- Existing PR 7-11 work is preserved as downstream layer infrastructure, not
+  discarded.
+- No runtime code, committed JSON Schema implementation, generated datasets,
+  workflows, or tests are changed.
+- Local validation runs: `ruff check .`, `pytest`, and
+  `python -m welfare_inspections.cli --help`.
+
+## PR 13: Report Index Layer Implementation
+
+Tasks:
+
+- Add a manual offline-friendly command, likely
+  `welfare-inspections collect-report-index`, that collects Gov.il
+  listing-page report cards.
+- Emit ignored local preview artifacts under `outputs/report_index/`:
+  `reports_index.csv`, `reports_index.jsonl`, and
+  `report_index_diagnostics.json`.
+- Preserve the six required Hebrew source-observed fields exactly in the public
+  CSV: `שם מסגרת`, `סוג מסגרת`, `סמל מסגרת`, `מינהל`, `מחוז`, and
+  `תאריך ביצוע`.
+- Preserve companion provenance in JSONL and/or documented CSV fields:
+  stable report/source IDs, Gov.il item URL, visible PDF URL, discovery time,
+  source page/pagination metadata, collection run ID, and collector version.
+- Validate required provenance, duplicate IDs, malformed dates as source text,
+  missing visible fields, pagination/source coverage diagnostics, and output
+  path guards.
+- Use mocked/offline fixture tests only.
+
+Acceptance criteria:
+
+- The command does not download PDFs, parse PDF text, run OCR, call LLM
+  providers, extract findings, normalize facility names, infer missing values,
+  publish to the data repo, or change scheduled workflows.
+- The report index CSV is human-readable and keeps the Hebrew source-observed
+  column names.
+- The JSONL/provenance output is machine-readable enough to support later
+  source document, raw text, processed canonical, and analytics layers.
+- `ruff check .`, `pytest`, and CLI/help checks pass.
